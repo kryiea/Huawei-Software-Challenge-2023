@@ -1,65 +1,64 @@
 #include <iostream>
 #include <cstdio>
 #include <vector>
+#include <string>
+#include <limits>
 
 using namespace std;
 
 char map[1024]{};
-int frame_ID{}; // Ö¡ID
-long int money{}; // µ±Ç°½ğÇ®
-vector<string> robotOrder{};//»úÆ÷ÈËÖ¸Áî¼¯
+int frame_ID{}; // å¸§ID
+long int money{}; // å½“å‰é‡‘é’±
+vector<string> robotOrder{};//æœºå™¨äººæŒ‡ä»¤é›†
 
-// »úÆ÷ÈËÀà
+// æœºå™¨äººç±»
 struct robot{
-    int workbench_ID{}; // -1£º²»´¦ÓÚ¹¤×÷Ì¨¸½½ü [0-8]: ¹¤×÷Ì¨°´Ë³ĞòÅÅĞò£¬0¿ªÊ¼
-    int item_ID{}; //Ğ¯´øµÄÎïÆ·ID£¬[0,7]:  0 ±íÊ¾Î´Ğ¯´øÎïÆ·
-    float time_Val{}; //Ê±¼ä¼ÛÖµÏµÊı: Ğ¯´øÎïÆ·Ê±Îª[0.8, 1]µÄ¸¡µãÊı£¬²»Ğ¯´øÎïÆ·Ê±Îª 0
-    float crash_Val{}; //Åö×²¼ÛÖµÏµÊı: Ğ¯´øÎïÆ·Ê±Îª[0.8, 1]µÄ¸¡µãÊı£¬²»Ğ¯´øÎïÆ·Ê±Îª 0¡£
-    float angleSpeed{};//µ¥Î»£º»¡¶È/Ãë¡£ÕıÊı£º±íÊ¾ÄæÊ±Õë¡£
-    float lineSpeed_X{};//ÓÉ¶şÎ¬ÏòÁ¿ÃèÊöÏßËÙ¶È£¬µ¥Î»£ºÃ×/Ãë
-    float lineSpeed_Y{};//ÓÉ¶şÎ¬ÏòÁ¿ÃèÊöÏßËÙ¶È£¬µ¥Î»£ºÃ×/Ãë
-    float angle{}; // ³¯Ïò£º»¡¶È·¶Î§·¶Î§[-¦Ğ,¦Ğ]¡£·½ÏòÊ¾Àı£º0£º±íÊ¾ÓÒ·½Ïò¡£¦Ğ/2£º±íÊ¾ÉÏ·½Ïò¡£-¦Ğ/2£º±íÊ¾ÏÂ·½Ïò
-    float position_X{};//¸¡µã×ø±êx y
-    float position_Y{};//¸¡µã×ø±êx y
+    int workbench_ID{}; // -1ï¼šä¸å¤„äºå·¥ä½œå°é™„è¿‘ [0-8]: å·¥ä½œå°æŒ‰é¡ºåºæ’åºï¼Œ0å¼€å§‹
+    int item_ID{}; //æºå¸¦çš„ç‰©å“IDï¼Œ[0,7]:  0 è¡¨ç¤ºæœªæºå¸¦ç‰©å“
+    float time_Val{}; //æ—¶é—´ä»·å€¼ç³»æ•°: æºå¸¦ç‰©å“æ—¶ä¸º[0.8, 1]çš„æµ®ç‚¹æ•°ï¼Œä¸æºå¸¦ç‰©å“æ—¶ä¸º 0
+    float crash_Val{}; //ç¢°æ’ä»·å€¼ç³»æ•°: æºå¸¦ç‰©å“æ—¶ä¸º[0.8, 1]çš„æµ®ç‚¹æ•°ï¼Œä¸æºå¸¦ç‰©å“æ—¶ä¸º 0ã€‚
+    float angleSpeed{};//å•ä½ï¼šå¼§åº¦/ç§’ã€‚æ­£æ•°ï¼šè¡¨ç¤ºé€†æ—¶é’ˆã€‚
+    float lineSpeed_X{};//ç”±äºŒç»´å‘é‡æè¿°çº¿é€Ÿåº¦ï¼Œå•ä½ï¼šç±³/ç§’
+    float lineSpeed_Y{};//ç”±äºŒç»´å‘é‡æè¿°çº¿é€Ÿåº¦ï¼Œå•ä½ï¼šç±³/ç§’
+    float angle{}; // æœå‘ï¼šå¼§åº¦èŒƒå›´èŒƒå›´[-Ï€,Ï€]ã€‚æ–¹å‘ç¤ºä¾‹ï¼š0ï¼šè¡¨ç¤ºå³æ–¹å‘ã€‚Ï€/2ï¼šè¡¨ç¤ºä¸Šæ–¹å‘ã€‚-Ï€/2ï¼šè¡¨ç¤ºä¸‹æ–¹å‘
+    float position_X{};//æµ®ç‚¹åæ ‡x y
+    float position_Y{};//æµ®ç‚¹åæ ‡x y
 }robot[5];
-//¹¤×÷Ì¨Àà
+//å·¥ä½œå°ç±»
 struct workbench{
-    int ID{}; //[1,9]
-    float position_X{};//¸¡µã×ø±êx y
-    float position_Y{};//¸¡µã×ø±êx y
-    int time_prodRemaining{}; //-1£º±íÊ¾Ã»ÓĞÉú²ú¡£0£º±íÊ¾Éú²úÒòÊä³ö¸ñÂú¶ø×èÈû¡£>=0£º±íÊ¾Ê£ÓàÉú²úÖ¡Êı¡£
-    int status_rawGrid{}; //¶ş½øÖÆÎ»±íÃèÊö£¬ÀıÈç 48(110000) ±íÊ¾ÓµÓĞÎïÆ· 4 ºÍ 5¡£
-    int status_prodGrid{}; //0£º±íÊ¾ÎŞ¡£1£º±íÊ¾ÓĞ¡£
-    int sum_workbench{}; //µ±Ç°µØÍ¼¹¤×÷Ì¨×ÜÊı ´æÔÚworkbench[0]ÖĞ
+    int type{}; //[1,9] ç±»å‹
+    float position_X{};//æµ®ç‚¹åæ ‡x y
+    float position_Y{};//æµ®ç‚¹åæ ‡x y
+    int time_prodRemaining{}; //-1ï¼šè¡¨ç¤ºæ²¡æœ‰ç”Ÿäº§ã€‚0ï¼šè¡¨ç¤ºç”Ÿäº§å› è¾“å‡ºæ ¼æ»¡è€Œé˜»å¡ã€‚>=0ï¼šè¡¨ç¤ºå‰©ä½™ç”Ÿäº§å¸§æ•°ã€‚
+    int status_rawGrid{}; //äºŒè¿›åˆ¶ä½è¡¨æè¿°ï¼Œä¾‹å¦‚ 48(110000) è¡¨ç¤ºæ‹¥æœ‰ç‰©å“ 4 å’Œ 5ã€‚
+    int status_prodGrid{}; //0ï¼šè¡¨ç¤ºæ— ã€‚1ï¼šè¡¨ç¤ºæœ‰ã€‚
+    int sum_workbench{}; //å½“å‰åœ°å›¾å·¥ä½œå°æ€»æ•° å­˜åœ¨workbench[0]ä¸­
 }workbench[51];
 
-bool initMap(); // ¶ÁÈ¡µØÍ¼ĞÅÏ¢
-bool Print_robotOrder(); //Êä³öµ±Ç°Ö¡µÄÖ¸Áî¼¯£¬Ok»»ĞĞ½áÊø
-bool readFrameData();// »ñÈ¡Ö¡ĞÅÏ¢
+bool initMap(); // è¯»å–åœ°å›¾ä¿¡æ¯
+bool Print_robotOrder(); //è¾“å‡ºå½“å‰å¸§çš„æŒ‡ä»¤é›†ï¼ŒOkæ¢è¡Œç»“æŸ
+bool inline readFrameData();// è·å–å¸§ä¿¡æ¯
 
 int main() {
     initMap();
     puts("OK");
-    //fflush(stdout);
-    cout << flush;
+    cout.flush();
 
-    //²âÊÔ²Ù×÷
-    robotOrder.push_back("forward 0 4");
-    robotOrder.push_back("rotate 0 3.14159");
-    robotOrder.push_back("forward 1 4");
-    robotOrder.push_back("rotate 0 3.14159");
-    robotOrder.push_back("forward 2 4");
-    robotOrder.push_back("rotate 0 3.14159");
-    robotOrder.push_back("forward 3 4");
-    robotOrder.push_back("rotate 3 3.14159");
+    //æµ‹è¯•æ“ä½œ
+    robotOrder.emplace_back("forward 0 4");
+    robotOrder.emplace_back("rotate 0 3.14159");
+    robotOrder.emplace_back("forward 1 4");
+    robotOrder.emplace_back("rotate 0 3.14159");
+    robotOrder.emplace_back("forward 2 4");
+    robotOrder.emplace_back("rotate 0 3.14159");
+    robotOrder.emplace_back("forward 3 4");
+    robotOrder.emplace_back("rotate 3 3.14159");
 
     while(scanf("%d",&frame_ID) != EOF){
-        //¶ÁÈëÖ¡ĞÅÏ¢
         readFrameData();
+        //è§„åˆ’å‡½æ•°
 
-        //¹æ»®º¯Êı
-
-        //Êä³öÖ¸Áî
+        //è¾“å‡ºæŒ‡ä»¤
         Print_robotOrder();
     }
     return 0;
@@ -67,23 +66,21 @@ int main() {
 
 
 /**
-  * @brief          : ¶ÁÈ¡Ö¡ĞÅÏ¢
+  * @brief          : è¯»å–å¸§ä¿¡æ¯
   * @retval         :
 */
-bool readFrameData() {
+bool inline readFrameData() {
+    //å½“å‰é‡‘é’±
     cin >> money;
-    //¶ÁÈ¡¹¤×÷Ì¨Êı¾İ
+    //å·¥ä½œå°æ€»æ•°
     cin >> workbench[0].sum_workbench;
-    int  i {};
-    do{
-        i = 0;
-        cin >> i;
+    //è¯»å…¥å·¥ä½œå°ä¿¡æ¯
+    for (int i = 1; i <= workbench[0].sum_workbench; ++i) {
+        cin >> workbench[i].type;
         cin >> workbench[i].position_X >> workbench[i].position_Y;
         cin >> workbench[i].time_prodRemaining >> workbench[i].status_rawGrid >> workbench[i].status_prodGrid;
     }
-    while(i < workbench[0].sum_workbench);
-
-    //¶ÁÈ¡»úÆ÷ÈËÊı¾İ
+    //è¯»å–æœºå™¨äººæ•°æ®
     for (int j = 0; j < 4; ++j) {
         cin >> robot[j].workbench_ID >> robot[j].item_ID
             >> robot[j].time_Val >> robot[j].crash_Val
@@ -92,18 +89,15 @@ bool readFrameData() {
             >> robot[j].angle
             >> robot[j].position_X >> robot[j].position_Y;
     }
-
-    //¶ÁÈ¡OK
     string s;
     cin >> s;
-    if("OK" == s) return true;
-    return false;
+    //æ¸…ç©ºè¾“å…¥ç¼“å†²æµ
+    cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    return true;
 }
 
-
-
 /**
-  * @brief          : ¶ÁÈ¡µ±Ç°µØÍ¼Êı¾İ
+  * @brief          : è¯»å–å½“å‰åœ°å›¾æ•°æ®
   * @retval         :
 */
 bool initMap() {
@@ -119,21 +113,38 @@ bool initMap() {
 
 
 
-
 /**
-  * @brief          : Êä³ö²Ù×÷Ö¸Áî
+  * @brief          : è¾“å‡ºæ“ä½œæŒ‡ä»¤
   * @retval         :
 */
 bool Print_robotOrder(){
-    //Êä³öÖ¡ID
+    //è¾“å‡ºå¸§ID
     cout << frame_ID << endl;
-    //Ö¸Áîmap
+    //æŒ‡ä»¤
     for (auto & iter : robotOrder) {
         cout << iter << endl;
     }
-    //Êä³öOK
-    printf("OK\n");
-    //Ë¢ĞÂstreamÁ÷
-    fflush(stdout);
+    //è¾“å‡ºOK
+    cout << "OK" << endl;
+    cout.flush();
     return true;
 }
+
+
+
+/*
+ *  ofstream of;
+        of.open("C:/Users/86195/Desktop/out.txt",ios::app);
+        of << frame_ID << ends << money << endl;
+        for (int i = 0; i < 4; ++i) {
+            of << robot[i].workbench_ID << ends << robot[i].item_ID
+                << ends << robot[i].time_Val << ends << robot[i].crash_Val
+                << ends << robot[i].angleSpeed
+                << ends << robot[i].lineSpeed_X << ends << robot[i].lineSpeed_Y
+                << ends << robot[i].angle
+                << ends << robot[i].position_X << ends << robot[i].position_Y << endl;
+        }
+        for (int i = 1; i <= workbench[0].sum_workbench; ++i) {
+            of << i << ends <<workbench[i].position_X << ends << workbench[i].position_Y << ends << workbench[i].time_prodRemaining << ends << workbench[i].status_rawGrid << ends << workbench[i].status_prodGrid << endl;
+        }
+        of.close();*/
