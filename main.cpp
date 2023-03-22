@@ -48,6 +48,10 @@ bool Print_robotOrder(); //输出当前帧的指令集，Ok换行结束
 bool inline readFrameData();// 获取帧信息
 double cal_Dis(double x1, double y1, double x2, double y2);// 距离
 void angle_Adjust(int robot, int targetBench);// 角度调整
+void Navigation(int robot, int targetBench);//导航
+void sell_algorithm();//卖出策略
+void buy_algorithm();//买入策略
+int findBench(int robotID);//找工作台
 
 int main() {
     initMap();
@@ -122,6 +126,13 @@ bool inline readFrameData() {
             >> robot[j].lineSpeed_X >> robot[j].lineSpeed_Y
             >> robot[j].angle
             >> robot[j].position_X >> robot[j].position_Y;
+        //确定当前半径
+        if(robot[j].item_ID == 0)   robot[j].r = 0.53;
+        else robot[j].r = 0.45;
+
+        //计算质量
+        robot[j].mass = pi * robot[j].r * robot[j].r * density;
+
     }
     string s;
     cin >> s;
@@ -161,9 +172,8 @@ bool Print_robotOrder(){
     //输出OK
     cout << "OK" << endl;
     cout.flush();
-    //清空robotOrder数组
-    //
-    //
+    //清空robotOrder容器，并虎回收空间
+    //vector <string>().swap(robotOrder);
     return true;
 }
 
@@ -181,7 +191,7 @@ double cal_Dis(double x1, double y1, double x2, double y2){
 
 /**
   * @brief          : 角度调整
-  * @param          : 机器人编号、 目标工作台编号
+  * @param          : 机器人编号、目标工作台编号
   * @retval         :
 */
 void angle_Adjust(int robotID, int targetBenchID){
@@ -210,15 +220,68 @@ void angle_Adjust(int robotID, int targetBenchID){
         //等于  0， 朝向正确
     }
 
+}
 
+/**
+  * @brief          : 路线导航
+  * @param          : int robot, int targetBench
+  * @retval         :
+*/
+void Navigation(int robot, int targetBench) {
+    angle_Adjust(robot,targetBench);
+}
 
-
-
+/**
+  * @brief          : 卖出策略
+  * @param          : 
+  * @retval         : 
+*/
+void sell_algorithm(int robotID) {
+    switch(robot[robotID].item_ID) {
+        case 1:
+            findBench();
+            break;
+        case 2:
+            break;
+        case 3:
+            break;
+        case 4:
+            break;
+        case 5:
+            break;
+        case 6:
+            break;
+        case 7:
+            break;
+    }
 
 
 }
 
 
+
+/**
+  * @brief          : 买入策略
+  * @param          : 
+  * @retval         : 
+*/
+void buy_algorithm() {
+
+}
+
+/**
+  * @brief          : 找最近的工作台
+  * @param          : int robotID, int typeBench
+  * @retval         : 符合条件的Bench
+*/
+int findBench(int robotID, int typeBench) {
+    if(typeBench == 4)
+    for (int i = 0; i < workbench[0].sum_workbench; ++i) {
+        if(workbench[i].type == typeBench && ){
+
+        }
+    }
+}
 
 
 
