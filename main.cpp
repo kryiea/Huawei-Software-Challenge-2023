@@ -31,6 +31,8 @@ struct robot{
     double r{}; //当前半径 r, 更新半径的时候，记得更新面积
     double mass{}; // 当前质量 = 面积 * 密度
     int targetBench{};//当前目的工作台，买卖操作后记得更新
+    int status_sellORbuy{};//1卖，0买
+    int level{};//交易等级
 }robot[5];
 //工作台类
 struct workbench{
@@ -50,9 +52,10 @@ double cal_Dis(double x1, double y1, double x2, double y2);// 距离
 void angle_Adjust(int robot, int targetBench);// 角度调整
 void speed_Adjust(int robot);//速度调整
 void Navigation(int robot, int targetBench);//导航
-void sell_algorithm();//卖出策略
-void buy_algorithm(int robot);//买入策略
-int findBench(int robotID);//找工作台
+void sell_algorithm(int robot);//卖出策略
+void buy_algorithm();//买入策略
+int findBench(int robotID,int sellORbuy, int buytype);//找工作台
+void setRobot(int robotID);
 
 int main() {
     initMap();
@@ -77,8 +80,9 @@ int main() {
     while(scanf("%d",&frame_ID) != EOF){
         readFrameData();
         //规划函数
-
-
+        for (int i = 0; i < 4; ++i) {
+            setRobot(i);
+        }
         //把在判题器帧数据打印
         ofstream of;
         of.open("C:/Users/86195/Desktop/out.txt",ios::app);
@@ -103,6 +107,39 @@ int main() {
     return 0;
 }
 
+/**
+  * @brief          :
+  * @param          :
+  * @retval         :
+*/
+void setRobot(int robotID) {
+
+    if (robot[robotID].status_sellORbuy == 1) {
+        //下一步卖
+        Navigation(robotID,findBench(robotID, 1, 0));
+
+
+    } else {
+        //下一步 买
+        if (robot[robotID].level == 1) {
+            // 买123
+            findBench(robotID,0,1);
+        }
+        if (robot[robotID].level == 2) {
+            //买 456
+            findBench(robotID,0,2);
+        }
+        if (robot[robotID].level == 3) {
+            //买 7
+            findBench(robotID,0,3);
+        }
+
+
+    }
+}
+
+
+
 
 /**
   * @brief          : 读取帧信息
@@ -118,6 +155,8 @@ bool inline readFrameData() {
         cin >> workbench[i].type;
         cin >> workbench[i].position_X >> workbench[i].position_Y;
         cin >> workbench[i].time_prodRemaining >> workbench[i].status_rawGrid >> workbench[i].status_prodGrid;
+
+        //确定当前收购的材料数量
     }
     //读取机器人数据
     for (int j = 0; j < 4; ++j) {
@@ -133,6 +172,8 @@ bool inline readFrameData() {
 
         //计算质量
         robot[j].mass = pi * robot[j].r * robot[j].r * density;
+
+
 
     }
     string s;
@@ -239,8 +280,12 @@ void speed_Adjudt(int robotID){
   * @retval         :
 */
 void Navigation(int robot, int targetBench) {
+    //生成旋转指令
     angle_Adjust(robot,targetBench);
     speed_Adjudt(robot);
+    // 生成速度指令
+
+    //
 }
 
 /**
@@ -283,19 +328,92 @@ void buy_algorithm() {
 
 /**
   * @brief          : 找最近的工作台
-  * @param          : int robotID, int typeBench
-  * @retval         : 符合条件的Bench
+  * @param          : int robotID, int typeBench, int sellORbuy 1 sell,0 buy
+  * @retval         : 符合条件的 Bench
 */
-int findBench(int robotID, int typeBench) {
-    if(typeBench == 4)
-    for (int i = 0; i < workbench[0].sum_workbench; ++i) {
-        if(workbench[i].type == typeBench && ){
+int findBench(int robotID,int sellORbuy, int buytype ) {
+    double dis{};
+    int temp{};
+    if(sellORbuy == 1){
+        //卖 找卖家
+        if(robot[robotID].item_ID == 1){
+            //找能卖 1号物品的4、5号工作台
+            for (int i = 0; i < workbench[0].sum_workbench; ++i) {
+                //判断 材料格 没有 1 号商品，即可卖给这个工作台
+                if( (workbench[i].type == 4 || workbench[i].type == 5)
+                    && workbench[i].status_rawGrid != 2 && workbench[i].status_rawGrid != 6 && workbench[i].status_rawGrid != 10 ){
+                    temp = i;
+                    dis = dis > cal_Dis();
+                }
+            }
+        }
+        if (robot[robotID].item_ID == 2){
+            //找能卖 2 号物品的4、6号工作台
+            for (int i = 0; i < workbench[0].sum_workbench; ++i) {
+                //判断 材料格 没有 2 号商品，即可卖给这个工作台
+                if( (workbench[i].type == 4 || workbench[i].type == 6)
+                    && workbench[i].status_rawGrid != 4 && workbench[i].status_rawGrid != 6 && workbench[i].status_rawGrid != 12 ){
+                    return i;
+                }
+            }
 
         }
+        if(robot[robotID].item_ID == 3){
+            //找能卖 2 号物品的5、6号工作台
+            for (int i = 0; i < workbench[0].sum_workbench; ++i) {
+                //判断 材料格 没有 3 号商品，即可卖给这个工作台
+                if( (workbench[i].type == 5 || workbench[i].type == 6)
+                    && workbench[i].status_rawGrid != 8 && workbench[i].status_rawGrid != 10 && workbench[i].status_rawGrid != 12 ){
+                    return i;
+                }
+            }
+        }
+        if(robot[robotID].item_ID == 4){
+            //找能卖 4 号物品的 7 号工作台
+            for (int i = 0; i < workbench[0].sum_workbench; ++i) {
+                //判断 材料格 没有 4号商品，即可卖给这个工作台
+                if( (workbench[i].type == 7)
+                    && workbench[i].status_rawGrid != 16 && workbench[i].status_rawGrid != 48 && workbench[i].status_rawGrid != 88 ){
+                    return i;
+                }
+            }
+        }
+        if(robot[robotID].item_ID == 5){
+            //找能卖 5 号物品的 7 号工作台
+            for (int i = 0; i < workbench[0].sum_workbench; ++i) {
+                //判断 材料格 没有 5号商品，即可卖给这个工作台
+                if( (workbench[i].type == 7)
+                    && workbench[i].status_rawGrid != 32 && workbench[i].status_rawGrid != 48 && workbench[i].status_rawGrid != 104 ){
+                    return i;
+                }
+            }
+        }
+        if(robot[robotID].item_ID == 6){
+            //找能卖 6 号物品的 7 号工作台
+            for (int i = 0; i < workbench[0].sum_workbench; ++i) {
+                //判断 材料格 没有 6号商品，即可卖给这个工作台
+                if( (workbench[i].type == 7)
+                    && workbench[i].status_rawGrid != 72 && workbench[i].status_rawGrid != 88 && workbench[i].status_rawGrid != 104 ){
+                    return i;
+                }
+            }
+        }
+        if(robot[robotID].item_ID == 7){
+            //找能卖 7 号物品的 8、9 号工作台
+            for (int i = 0; i < workbench[0].sum_workbench; ++i) {
+                //判断 是否是 8 、9
+                if( workbench[i].type == 8 || workbench[i].type == 9){
+                    return i;
+                }
+            }
+        }
+
+    }
+    else{
+        //买
+
     }
 }
-
-
 
 
 
