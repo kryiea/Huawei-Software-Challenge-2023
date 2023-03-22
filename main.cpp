@@ -32,8 +32,8 @@ struct robot{
     double mass{}; // 当前质量 = 面积 * 密度
     int targetBench{};//当前目的工作台，买卖操作后记得更新
     int status_sellORbuy{};//1卖，0买
-    int level{};//交易等级
-}robot[5];
+    int level = 1;//交易等级，默认是 1
+}robot[5]; // 0-3
 //工作台类
 struct workbench{
     int type{}; //[1,9] 类型
@@ -61,21 +61,21 @@ int main() {
     initMap();
     puts("OK");
     cout.flush();
-
-    //测试操作
-    robotOrder.emplace_back("forward 0 4");
-    robotOrder.emplace_back("forward 0 4");
-    robotOrder.emplace_back("forward 0 5");
-
     /*
-    robotOrder.emplace_back("rotate 0 3.14159");
-    robotOrder.emplace_back("forward 1 4");
-    robotOrder.emplace_back("rotate 0 3.14159");
-    robotOrder.emplace_back("forward 2 4");
-    robotOrder.emplace_back("rotate 0 3.14159");
-    robotOrder.emplace_back("forward 3 4");
-    robotOrder.emplace_back("rotate 3 3.14159");
-     */
+       //测试操作
+       robotOrder.emplace_back("forward 0 4");
+       robotOrder.emplace_back("forward 0 4");
+       robotOrder.emplace_back("forward 0 5");
+
+
+       robotOrder.emplace_back("rotate 0 3.14159");
+       robotOrder.emplace_back("forward 1 4");
+       robotOrder.emplace_back("rotate 0 3.14159");
+       robotOrder.emplace_back("forward 2 4");
+       robotOrder.emplace_back("rotate 0 3.14159");
+       robotOrder.emplace_back("forward 3 4");
+       robotOrder.emplace_back("rotate 3 3.14159");
+        */
 
     while(scanf("%d",&frame_ID) != EOF){
         readFrameData();
@@ -85,7 +85,7 @@ int main() {
         }
         //把在判题器帧数据打印
         ofstream of;
-        of.open("C:/Users/29755/Desktop/out.txt",ios::app);
+        of.open("C:/Users/29755/Desktop/out.txt");
         of << frame_ID << ends << money << endl;
         for (int i = 0; i < 4; ++i) {
             of << robot[i].workbench_ID << ends << robot[i].item_ID
@@ -113,7 +113,29 @@ int main() {
   * @retval         :
 */
 void setRobot(int robotID) {
-    //
+    //是否在目标工作台附近
+    if(robot[robotID].workbench_ID == robot[robotID].targetBench){
+        if(robot[robotID].status_sellORbuy == 1){
+            //要卖
+            robotOrder.push_back("sell " + to_string(robotID));
+            //卖完更新状态，转为要买
+            robot[robotID].item_ID = 0;
+            robot[robotID].targetBench = -1;
+            robot[robotID].status_sellORbuy = 0;
+        }
+        if(robot[robotID].status_sellORbuy == 0){
+            //要买
+            robotOrder.push_back("buy " + to_string(robotID));
+            //卖完更新状态，转为要卖
+            robot[robotID].item_ID = robot[robotID].workbench_ID;
+            robot[robotID].targetBench = -1;
+            robot[robotID].status_sellORbuy = 1;
+        }
+
+    }
+
+
+
     if (robot[robotID].status_sellORbuy == 1) {
         //下一步卖
         Navigation(robotID,findBench(robotID, 1, 0));
@@ -212,7 +234,7 @@ bool Print_robotOrder(){
     cout << "OK" << endl;
     cout.flush();
     //清空robotOrder容器，并虎回收空间
-    //vector <string>().swap(robotOrder);
+    vector <string>().swap(robotOrder);
     return true;
 }
 
@@ -227,6 +249,7 @@ bool Print_robotOrder(){
 double cal_Dis(double x1, double y1, double x2, double y2){
     return pow((pow(x1-x2,2) + pow(y1-y2,2)),0.5);
 }
+
 
 /**
   * @brief          : 角度调整
@@ -257,6 +280,8 @@ void angle_Adjust(int robotID, int targetBenchID){
         robotOrder.push_back("rotate " + to_string(robotID) + " -2");
     }else{
         //等于  0， 朝向正确
+        robotOrder.push_back("rotate " + to_string(robotID) + " 0");
+
     }
 
 }
@@ -267,7 +292,7 @@ void angle_Adjust(int robotID, int targetBenchID){
   * @retval         :
 */
 void speed_Adjudt(int robotID){
-    robotOrder.push_back("forward " + to_string(robotID) + "6");
+    robotOrder.push_back("forward " + to_string(robotID) + " 6");
 }
 
 
@@ -279,10 +304,8 @@ void speed_Adjudt(int robotID){
 void Navigation(int robot, int targetBench) {
     //生成旋转指令
     angle_Adjust(robot,targetBench);
-    speed_Adjudt(robot);
     // 生成速度指令
-
-    //
+    speed_Adjudt(robot);
 }
 
 /**
@@ -293,7 +316,7 @@ void Navigation(int robot, int targetBench) {
 void sell_algorithm(int robotID) {
     switch(robot[robotID].item_ID) {
         case 1:
-            findBench();
+            //findBench();
             break;
         case 2:
             break;
@@ -480,6 +503,8 @@ int findBench(int robotID,int sellORbuy, int buytype) {
 
 
     }
+    //搜索失败
+    return -1;
 }
 
 
