@@ -12,6 +12,7 @@ using namespace std;
 
 const int density = 20;// 机器人密度
 const double pi = 3.14159; // 圆周率
+const double MAX = 99999;//最大值
 
 char map[1024]{};
 int frame_ID{}; // 帧ID
@@ -20,8 +21,8 @@ vector<string> robotOrder{};//机器人指令集
 
 // 机器人类
 struct robot{
-    int workbench_ID{}; // -1：不处于工作台附近 [0-8]: 工作台按顺序排序，0开始
-    int item_ID{}; //携带的物品ID，[0,7]:  0 表示未携带物品
+    int workbench_ID{}; // -1：不处于工作台附近 [0，总工作台总数-1]: 工作台按顺序排序，0开始
+    int item_ID{}; //携带的物品ID，[1,7],  0 表示未携带物品
     double time_Val{}; //时间价值系数: 携带物品时为[0.8, 1]的浮点数，不携带物品时为 0
     double crash_Val{}; //碰撞价值系数: 携带物品时为[0.8, 1]的浮点数，不携带物品时为 0。
     double angleSpeed{};//单位：弧度/秒。正数：表示逆时针。
@@ -32,9 +33,10 @@ struct robot{
     double position_Y{};//浮点坐标x y
     double r{}; //当前半径 r, 更新半径的时候，记得更新面积
     double mass{}; // 当前质量 = 面积 * 密度
-    int targetBench{};//当前目的工作台，买卖操作后记得更新
+    int targetBench = -2;//当前目的工作台，买卖操作后记得更新,初始是没有目标的，-2是单线的开始，-1是当前待更新
     int status_sellORbuy{};//1卖，0买
     int level = 1;//交易等级，默认是 1
+    double angleDis{}; // 与目标机器人的角度差
 }robot[5]; // 0-3
 //工作台类
 struct workbench{
@@ -51,37 +53,22 @@ bool initMap(); // 读取地图信息
 bool Print_robotOrder(); //输出当前帧的指令集，Ok换行结束
 bool inline readFrameData();// 获取帧信息
 double cal_Dis(double x1, double y1, double x2, double y2);// 距离
-void angle_Adjust(int robot, int targetBench);// 角度调整
-void speed_Adjust(int robot);//速度调整
-void Navigation(int robot, int targetBench);//导航
+void adjust_Angle(int robotID);// 角度调整
+void adjust_Speed(int robot);//速度调整
+void Navigation(int robot);//导航
 void sell_algorithm(int robot);//卖出策略
 void buy_algorithm();//买入策略
 int findBench(int robotID,int sellORbuy, int buytype);//找工作台
 void setRobot(int robotID);//设置机器人状态
+void crash_warn_robot(); //机器人之间要碰撞，其中一个机器人放慢速度
 
 int main() {
     //挂载调试
-    Sleep(15000);
-
+    //Sleep(20000);
 
     initMap();
     puts("OK");
     cout.flush();
-    /*
-       //测试操作
-       robotOrder.emplace_back("forward 0 4");
-       robotOrder.emplace_back("forward 0 4");
-       robotOrder.emplace_back("forward 0 5");
-
-
-       robotOrder.emplace_back("rotate 0 3.14159");
-       robotOrder.emplace_back("forward 1 4");
-       robotOrder.emplace_back("rotate 0 3.14159");
-       robotOrder.emplace_back("forward 2 4");
-       robotOrder.emplace_back("rotate 0 3.14159");
-       robotOrder.emplace_back("forward 3 4");
-       robotOrder.emplace_back("rotate 3 3.14159");
-        */
 
     while(scanf("%d",&frame_ID) != EOF){
         readFrameData();
@@ -89,21 +76,22 @@ int main() {
         for (int i = 0; i < 4; ++i) {
             setRobot(i);
         }
+
         //把数据打印
         ofstream of;
-        of.open("C:/Users/29755/Desktop/out.txt", ios::app);
+        of.open("C:/Users/86195/Desktop/out.txt",ios::app);
         of << frame_ID << endl ;
-//        for (int i = 0; i < 4; ++i) {
-//            of << robot[i].workbench_ID << ends << robot[i].item_ID
-//               << ends << robot[i].time_Val << ends << robot[i].crash_Val
-//               << ends << robot[i].angleSpeed
-//               << ends << robot[i].lineSpeed_X << ends << robot[i].lineSpeed_Y
-//               << ends << robot[i].angle
-//               << ends << robot[i].position_X << ends << robot[i].position_Y << endl;
-//        }
-//        for (int i = 1; i <= workbench[0].sum_workbench; ++i) {
-//            of << i << ends <<workbench[i].position_X << ends << workbench[i].position_Y << ends << workbench[i].time_prodRemaining << ends << workbench[i].status_rawGrid << ends << workbench[i].status_prodGrid << endl;
-//        }
+        for (int i = 0; i < 4; ++i) {
+            of << robot[i].workbench_ID << ends << robot[i].item_ID
+               << ends << robot[i].time_Val << ends << robot[i].crash_Val
+               << ends << robot[i].angleSpeed
+               << ends << robot[i].lineSpeed_X << ends << robot[i].lineSpeed_Y
+               << ends << robot[i].angle
+               << ends << robot[i].position_X << ends << robot[i].position_Y << ends << robot[i].targetBench <<  ends << robot[i].angleDis <<endl;
+        }
+        for (int i = 0; i < workbench[50].sum_workbench; ++i) {
+            of << i << ends << workbench[i].type << ends <<workbench[i].position_X << ends << workbench[i].position_Y << ends << workbench[i].time_prodRemaining << ends << workbench[i].status_rawGrid << ends << workbench[i].status_prodGrid << endl;
+        }
         for(auto iter:robotOrder){
             of << iter << endl;
         }
@@ -116,27 +104,45 @@ int main() {
     return 0;
 }
 
+
+
+
 /**
-  * @brief          :
-  * @param          :
+  * @brief          : 设置机器人状态
+  * @param          : int robotID
   * @retval         :
 */
 void setRobot(int robotID) {
+    //说明是最起始状态：单线开始咯
+    if(robot[robotID].targetBench == -2){
+        robot[robotID].targetBench = findBench(robotID,0,1);
+    }
+
     //是否在目标工作台附近
     if(robot[robotID].workbench_ID == robot[robotID].targetBench){
+        //要卖
         if(robot[robotID].status_sellORbuy == 1){
-            //要卖
             robotOrder.push_back("sell " + to_string(robotID));
             //卖完更新状态，转为要买
-            robot[robotID].item_ID = 0;
-            robot[robotID].targetBench = -1;
-            robot[robotID].status_sellORbuy = 0;
+            //如果卖的是7，那卖完7重新单线
+            if(robot[robotID].item_ID == 7){
+                robot[robotID].item_ID = 0;
+                robot[robotID].targetBench = -2; //重新开始单线
+                robot[robotID].status_sellORbuy = 0;
+                robot[robotID].level = 1;
+            }else{
+                robot[robotID].item_ID = 0;
+                robot[robotID].targetBench = -1;
+                robot[robotID].status_sellORbuy = 0;
+                robot[robotID].level++;
+            }
+
         }
         if(robot[robotID].status_sellORbuy == 0){
             //要买
             robotOrder.push_back("buy " + to_string(robotID));
             //卖完更新状态，转为要卖
-            robot[robotID].item_ID = robot[robotID].workbench_ID;
+            robot[robotID].item_ID = workbench[robot[robotID].workbench_ID].type;
             robot[robotID].targetBench = -1;
             robot[robotID].status_sellORbuy = 1;
         }
@@ -144,24 +150,28 @@ void setRobot(int robotID) {
     }
 
 
-
+    //下一步卖
     if (robot[robotID].status_sellORbuy == 1) {
-        //下一步卖
-        Navigation(robotID,findBench(robotID, 1, 0));
+        robot[robotID].targetBench = findBench(robotID, 1, 0);
+        Navigation(robotID);
     }
     else {
-        //下一步 买
+    //下一步 买
         if (robot[robotID].level == 1) {
             // 买 123
-            Navigation(robotID,findBench(robotID,0,1));
+            robot[robotID].targetBench = findBench(robotID,0,1);
+            Navigation(robotID);
         }
         if (robot[robotID].level == 2) {
             //买 456
-            Navigation(robotID,findBench(robotID,0,2));
+            robot[robotID].targetBench = findBench(robotID,0,2);
+            Navigation(robotID);
+
         }
         if (robot[robotID].level == 3) {
             //买 7
-            Navigation(robotID,findBench(robotID,0,3));
+            robot[robotID].targetBench = findBench(robotID,0,3);
+            Navigation(robotID);
         }
     }
 }
@@ -177,9 +187,9 @@ bool inline readFrameData() {
     //当前金钱
     cin >> money;
     //工作台总数
-    cin >> workbench[0].sum_workbench;
+    cin >> workbench[50].sum_workbench;
     //读入工作台信息
-    for (int i = 1; i <= workbench[0].sum_workbench; ++i) {
+    for (int i = 0; i < workbench[50].sum_workbench; ++i) {
         cin >> workbench[i].type;
         cin >> workbench[i].position_X >> workbench[i].position_Y;
         cin >> workbench[i].time_prodRemaining >> workbench[i].status_rawGrid >> workbench[i].status_prodGrid;
@@ -195,19 +205,20 @@ bool inline readFrameData() {
             >> robot[j].angle
             >> robot[j].position_X >> robot[j].position_Y;
         //确定当前半径
-        if(robot[j].item_ID == 0)   robot[j].r = 0.53;
-        else robot[j].r = 0.45;
-
+        if(robot[j].item_ID == 0)   robot[j].r = 0.45;
+        else robot[j].r = 0.53;
         //计算质量
         robot[j].mass = pi * robot[j].r * robot[j].r * density;
-
-
+        //将angle (-pi,pi) 转成(0,2pi)
+        if(robot[j].angle < 0 ) robot[j].angle = pi - robot[j].angle;
 
     }
     string s;
     cin >> s;
     //清空输入缓冲流
     cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    workbench[50].position_X = 50.0;
+    workbench[50].position_Y = 50.0;
     return true;
 }
 
@@ -265,12 +276,12 @@ double cal_Dis(double x1, double y1, double x2, double y2){
   * @param          : 机器人编号、目标工作台编号
   * @retval         :
 */
-void angle_Adjust(int robotID, int targetBenchID){
+void adjust_Angle(int robotID){
     //机器人和目标点的向量 X Y
-    double vector_robotTobenchX = workbench[targetBenchID].position_X - robot[robotID].position_X;
-    double vector_robotTobenchY = workbench[targetBenchID].position_Y - robot[robotID].position_Y;
+    double vector_robotTobenchX = workbench[robot[robotID].targetBench].position_X - robot[robotID].position_X;
+    double vector_robotTobenchY = workbench[robot[robotID].targetBench].position_Y - robot[robotID].position_Y;
     //工作台与以机器人为原点的正方向向量
-    double vector_positiveX = 10.0;
+    double vector_positiveX = robot[robotID].position_X;
     //工作台与以机器人为原点的正方向的夹角
     double angle_bench_positive {};
     double cos1 = (vector_robotTobenchX * vector_positiveX)
@@ -280,13 +291,14 @@ void angle_Adjust(int robotID, int targetBenchID){
     //角度差
     double angle_dis{};
     angle_dis = robot[robotID].angle -  angle_bench_positive;
+    robot[robotID].angleDis = angle_dis;
     if(angle_dis > 0){
         //需要向右调整角度
-        robotOrder.push_back("rotate " + to_string(robotID) + " 3");
+        robotOrder.push_back("rotate " + to_string(robotID) + " -2");
 
     }else if(angle_dis < 0){
         //需要向左调整角度
-        robotOrder.push_back("rotate " + to_string(robotID) + " -3");
+        robotOrder.push_back("rotate " + to_string(robotID) + " 2");
     }else{
         //等于  0， 朝向正确
         robotOrder.push_back("rotate " + to_string(robotID) + " 0");
@@ -300,8 +312,8 @@ void angle_Adjust(int robotID, int targetBenchID){
   * @param          : 机器人编号
   * @retval         :
 */
-void speed_Adjudt(int robotID){
-    robotOrder.push_back("forward " + to_string(robotID) + " 1");
+void adjust_Speed(int robotID){
+    robotOrder.push_back("forward " + to_string(robotID) + " 2");
 }
 
 
@@ -310,11 +322,11 @@ void speed_Adjudt(int robotID){
   * @param          : int robot, int targetBench
   * @retval         :
 */
-void Navigation(int robot, int targetBench) {
+void Navigation(int robotID) {
     //生成旋转指令
-    angle_Adjust(robot,targetBench);
+    adjust_Angle(robotID);
     // 生成速度指令
-    speed_Adjudt(robot);
+    adjust_Speed(robotID);
 }
 
 /**
@@ -355,6 +367,8 @@ void buy_algorithm() {
 
 }
 
+
+
 /**
   * @brief          : 找最近的工作台
   * @param          : int robotID, int typeBench, int sellORbuy 1 sell,0 buy
@@ -362,13 +376,13 @@ void buy_algorithm() {
 */
 int findBench(int robotID,int sellORbuy, int buytype) {
     //初始最近距离是与第一个工作台
-    double dis = cal_Dis(robot[0].position_X,robot[0].position_Y,workbench[1].position_X,workbench[1].position_Y);
-    int temp = 1;//初始最近的合适工作台
+    double dis = MAX;
+    int temp = 0;//初始最近的合适工作台
     if(sellORbuy == 1){
         //卖 找卖家
         if(robot[robotID].item_ID == 1){
             //找能卖 1号物品的4、5号工作台
-            for (int i = 1; i <= workbench[0].sum_workbench; ++i) {
+            for (int i = 1; i < workbench[50].sum_workbench; ++i) {
                 //判断 材料格 没有 1 号商品，即可卖给这个工作台
                 if( (workbench[i].type == 4 || workbench[i].type == 5)
                     && workbench[i].status_rawGrid != 2 && workbench[i].status_rawGrid != 6 && workbench[i].status_rawGrid != 10 ){
@@ -382,7 +396,7 @@ int findBench(int robotID,int sellORbuy, int buytype) {
         }
         if (robot[robotID].item_ID == 2){
             //找能卖 2 号物品的4、6号工作台
-            for (int i = 1; i <= workbench[0].sum_workbench; ++i) {
+            for (int i = 1; i < workbench[50].sum_workbench; ++i) {
                 //判断 材料格 没有 2 号商品，即可卖给这个工作台
                 if( (workbench[i].type == 4 || workbench[i].type == 6)
                     && workbench[i].status_rawGrid != 4 && workbench[i].status_rawGrid != 6 && workbench[i].status_rawGrid != 12 ){
@@ -397,7 +411,7 @@ int findBench(int robotID,int sellORbuy, int buytype) {
         }
         if(robot[robotID].item_ID == 3){
             //找能卖 2 号物品的5、6号工作台
-            for (int i = 1; i <= workbench[0].sum_workbench; ++i) {
+            for (int i = 1; i < workbench[50].sum_workbench; ++i) {
                 //判断 材料格 没有 3 号商品，即可卖给这个工作台
                 if( (workbench[i].type == 5 || workbench[i].type == 6)
                     && workbench[i].status_rawGrid != 8 && workbench[i].status_rawGrid != 10 && workbench[i].status_rawGrid != 12 ){
@@ -412,7 +426,7 @@ int findBench(int robotID,int sellORbuy, int buytype) {
         }
         if(robot[robotID].item_ID == 4){
             //找能卖 4 号物品的 7 号工作台
-            for (int i = 1; i <= workbench[0].sum_workbench; ++i) {
+            for (int i = 1; i < workbench[50].sum_workbench; ++i) {
                 //判断 材料格 没有 4号商品，即可卖给这个工作台
                 if( (workbench[i].type == 7)
                     && workbench[i].status_rawGrid != 16 && workbench[i].status_rawGrid != 48 && workbench[i].status_rawGrid != 88 ){
@@ -427,7 +441,7 @@ int findBench(int robotID,int sellORbuy, int buytype) {
         }
         if(robot[robotID].item_ID == 5){
             //找能卖 5 号物品的 7 号工作台
-            for (int i = 1; i <= workbench[0].sum_workbench; ++i) {
+            for (int i = 1; i < workbench[50].sum_workbench; ++i) {
                 //判断 材料格 没有 5号商品，即可卖给这个工作台
                 if( (workbench[i].type == 7)
                     && workbench[i].status_rawGrid != 32 && workbench[i].status_rawGrid != 48 && workbench[i].status_rawGrid != 104 ){
@@ -442,7 +456,7 @@ int findBench(int robotID,int sellORbuy, int buytype) {
         }
         if(robot[robotID].item_ID == 6){
             //找能卖 6 号物品的 7 号工作台
-            for (int i = 1; i <= workbench[0].sum_workbench; ++i) {
+            for (int i = 1; i < workbench[50].sum_workbench; ++i) {
                 //判断 材料格 没有 6号商品，即可卖给这个工作台
                 if( (workbench[i].type == 7)
                     && workbench[i].status_rawGrid != 72 && workbench[i].status_rawGrid != 88 && workbench[i].status_rawGrid != 104 ){
@@ -457,7 +471,7 @@ int findBench(int robotID,int sellORbuy, int buytype) {
         }
         if(robot[robotID].item_ID == 7){
             //找能卖 7 号物品的 8、9 号工作台
-            for (int i = 1; i <= workbench[0].sum_workbench; ++i) {
+            for (int i = 1; i < workbench[50].sum_workbench; ++i) {
                 //判断 是否是 8 、9
                 if( workbench[i].type == 8 || workbench[i].type == 9){
                     if(cal_Dis(robot[robotID].position_X,robot[robotID].position_Y,workbench[i].position_X,workbench[i].position_Y) < dis){
@@ -474,7 +488,7 @@ int findBench(int robotID,int sellORbuy, int buytype) {
         //买
         if(buytype == 1){
             //找 123
-            for (int i = 1; i <= workbench[0].sum_workbench; ++i) {
+            for (int i = 1; i < workbench[50].sum_workbench; ++i) {
                 if( (workbench[i].type == 1 || workbench[i].type == 2 || workbench[i].type == 3 ) && workbench[i].status_prodGrid == 1){
                     if(cal_Dis(robot[robotID].position_X,robot[robotID].position_Y,workbench[i].position_X,workbench[i].position_Y) < dis){
                         dis = cal_Dis(robot[robotID].position_X,robot[robotID].position_Y,workbench[i].position_X,workbench[i].position_Y);
@@ -486,7 +500,7 @@ int findBench(int robotID,int sellORbuy, int buytype) {
         }
         if(buytype == 2){
             //找 345
-            for (int i = 1; i <= workbench[0].sum_workbench; ++i) {
+            for (int i = 1; i < workbench[50].sum_workbench; ++i) {
                 if( (workbench[i].type == 3 || workbench[i].type == 4 || workbench[i].type == 5 ) && workbench[i].status_prodGrid == 1){
                     if(cal_Dis(robot[robotID].position_X,robot[robotID].position_Y,workbench[i].position_X,workbench[i].position_Y) < dis){
                         dis = cal_Dis(robot[robotID].position_X,robot[robotID].position_Y,workbench[i].position_X,workbench[i].position_Y);
@@ -498,7 +512,7 @@ int findBench(int robotID,int sellORbuy, int buytype) {
         }
         if(buytype == 3){
             //找 7
-            for (int i = 1; i <= workbench[0].sum_workbench; ++i) {
+            for (int i = 1; i < workbench[50].sum_workbench; ++i) {
                 if( workbench[i].type == 7 && workbench[i].status_prodGrid == 1){
                     if(cal_Dis(robot[robotID].position_X,robot[robotID].position_Y,workbench[i].position_X,workbench[i].position_Y) < dis){
                         dis = cal_Dis(robot[robotID].position_X,robot[robotID].position_Y,workbench[i].position_X,workbench[i].position_Y);
@@ -513,7 +527,7 @@ int findBench(int robotID,int sellORbuy, int buytype) {
 
     }
     //搜索失败
-    return -1;
+    return -2;// 重新开始单线，别闲着
 }
 
 
