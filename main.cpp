@@ -6,6 +6,8 @@
 #include <valarray>
 #include <fstream>
 #include <cmath>
+#include <synchapi.h>
+
 using namespace std;
 
 const int density = 20;// 机器人密度
@@ -58,6 +60,10 @@ int findBench(int robotID,int sellORbuy, int buytype);//找工作台
 void setRobot(int robotID);//设置机器人状态
 
 int main() {
+    //挂载调试
+    Sleep(15000);
+
+
     initMap();
     puts("OK");
     cout.flush();
