@@ -43,7 +43,7 @@ struct workbench{
     int status_rawGrid{}; //二进制位表描述，例如 48(110000) 表示拥有物品 4 和 5。
     int status_prodGrid{}; //0：表示无。1：表示有。
     int sum_workbench{}; //当前地图工作台总数 存在workbench[0]中
-}workbench[51];//工作台按顺序排序，0开始
+}workbench[51];//工作台按顺序排序，1开始
 
 bool initMap(); // 读取地图信息
 bool Print_robotOrder(); //输出当前帧的指令集，Ok换行结束
@@ -54,7 +54,7 @@ void Navigation(int robot, int targetBench);//导航
 void sell_algorithm(int robot);//卖出策略
 void buy_algorithm();//买入策略
 int findBench(int robotID,int sellORbuy, int buytype);//找工作台
-void setRobot(int robotID);
+void setRobot(int robotID);//设置机器人状态
 
 int main() {
     initMap();
@@ -112,28 +112,25 @@ int main() {
   * @retval         : 
 */
 void setRobot(int robotID) {
-
+    //
     if (robot[robotID].status_sellORbuy == 1) {
         //下一步卖
         Navigation(robotID,findBench(robotID, 1, 0));
-
-
-    } else {
+    }
+    else {
         //下一步 买
         if (robot[robotID].level == 1) {
-            // 买123
-            findBench(robotID,0,1);
+            // 买 123
+            Navigation(robotID,findBench(robotID,0,1));
         }
         if (robot[robotID].level == 2) {
             //买 456
-            findBench(robotID,0,2);
+            Navigation(robotID,findBench(robotID,0,2));
         }
         if (robot[robotID].level == 3) {
             //买 7
-            findBench(robotID,0,3);
+            Navigation(robotID,findBench(robotID,0,3));
         }
-
-
     }
 }
 
@@ -319,86 +316,156 @@ void buy_algorithm() {
   * @param          : int robotID, int typeBench, int sellORbuy 1 sell,0 buy
   * @retval         : 符合条件的 Bench
 */
-int findBench(int robotID,int sellORbuy, int buytype ) {
-    double dis{};
-    int temp{};
+int findBench(int robotID,int sellORbuy, int buytype) {
+    //初始最近距离是与第一个工作台
+    double dis = cal_Dis(robot[0].position_X,robot[0].position_Y,workbench[1].position_X,workbench[1].position_Y);
+    int temp = 1;//初始最近的合适工作台
     if(sellORbuy == 1){
         //卖 找卖家
         if(robot[robotID].item_ID == 1){
             //找能卖 1号物品的4、5号工作台
-            for (int i = 0; i < workbench[0].sum_workbench; ++i) {
+            for (int i = 1; i <= workbench[0].sum_workbench; ++i) {
                 //判断 材料格 没有 1 号商品，即可卖给这个工作台
                 if( (workbench[i].type == 4 || workbench[i].type == 5)
                     && workbench[i].status_rawGrid != 2 && workbench[i].status_rawGrid != 6 && workbench[i].status_rawGrid != 10 ){
-                    temp = i;
-                    dis = dis > cal_Dis();
+                    if(cal_Dis(robot[robotID].position_X,robot[robotID].position_Y,workbench[i].position_X,workbench[i].position_Y) < dis){
+                        dis = cal_Dis(robot[robotID].position_X,robot[robotID].position_Y,workbench[i].position_X,workbench[i].position_Y);
+                        temp = i;
+                    }
                 }
             }
+            return temp;
         }
         if (robot[robotID].item_ID == 2){
             //找能卖 2 号物品的4、6号工作台
-            for (int i = 0; i < workbench[0].sum_workbench; ++i) {
+            for (int i = 1; i <= workbench[0].sum_workbench; ++i) {
                 //判断 材料格 没有 2 号商品，即可卖给这个工作台
                 if( (workbench[i].type == 4 || workbench[i].type == 6)
                     && workbench[i].status_rawGrid != 4 && workbench[i].status_rawGrid != 6 && workbench[i].status_rawGrid != 12 ){
-                    return i;
+                    if(cal_Dis(robot[robotID].position_X,robot[robotID].position_Y,workbench[i].position_X,workbench[i].position_Y) < dis){
+                        dis = cal_Dis(robot[robotID].position_X,robot[robotID].position_Y,workbench[i].position_X,workbench[i].position_Y);
+                        temp = i;
+                    }
+
                 }
             }
-
+            return temp;
         }
         if(robot[robotID].item_ID == 3){
             //找能卖 2 号物品的5、6号工作台
-            for (int i = 0; i < workbench[0].sum_workbench; ++i) {
+            for (int i = 1; i <= workbench[0].sum_workbench; ++i) {
                 //判断 材料格 没有 3 号商品，即可卖给这个工作台
                 if( (workbench[i].type == 5 || workbench[i].type == 6)
                     && workbench[i].status_rawGrid != 8 && workbench[i].status_rawGrid != 10 && workbench[i].status_rawGrid != 12 ){
-                    return i;
+                    if(cal_Dis(robot[robotID].position_X,robot[robotID].position_Y,workbench[i].position_X,workbench[i].position_Y) < dis){
+                        dis = cal_Dis(robot[robotID].position_X,robot[robotID].position_Y,workbench[i].position_X,workbench[i].position_Y);
+                        temp = i;
+                    }
+
                 }
             }
+            return temp;
         }
         if(robot[robotID].item_ID == 4){
             //找能卖 4 号物品的 7 号工作台
-            for (int i = 0; i < workbench[0].sum_workbench; ++i) {
+            for (int i = 1; i <= workbench[0].sum_workbench; ++i) {
                 //判断 材料格 没有 4号商品，即可卖给这个工作台
                 if( (workbench[i].type == 7)
                     && workbench[i].status_rawGrid != 16 && workbench[i].status_rawGrid != 48 && workbench[i].status_rawGrid != 88 ){
-                    return i;
+                    if(cal_Dis(robot[robotID].position_X,robot[robotID].position_Y,workbench[i].position_X,workbench[i].position_Y) < dis){
+                        dis = cal_Dis(robot[robotID].position_X,robot[robotID].position_Y,workbench[i].position_X,workbench[i].position_Y);
+                        temp = i;
+                    }
+
                 }
             }
+            return temp;
         }
         if(robot[robotID].item_ID == 5){
             //找能卖 5 号物品的 7 号工作台
-            for (int i = 0; i < workbench[0].sum_workbench; ++i) {
+            for (int i = 1; i <= workbench[0].sum_workbench; ++i) {
                 //判断 材料格 没有 5号商品，即可卖给这个工作台
                 if( (workbench[i].type == 7)
                     && workbench[i].status_rawGrid != 32 && workbench[i].status_rawGrid != 48 && workbench[i].status_rawGrid != 104 ){
-                    return i;
+                    if(cal_Dis(robot[robotID].position_X,robot[robotID].position_Y,workbench[i].position_X,workbench[i].position_Y) < dis){
+                        dis = cal_Dis(robot[robotID].position_X,robot[robotID].position_Y,workbench[i].position_X,workbench[i].position_Y);
+                        temp = i;
+                    }
+
                 }
             }
+            return temp;
         }
         if(robot[robotID].item_ID == 6){
             //找能卖 6 号物品的 7 号工作台
-            for (int i = 0; i < workbench[0].sum_workbench; ++i) {
+            for (int i = 1; i <= workbench[0].sum_workbench; ++i) {
                 //判断 材料格 没有 6号商品，即可卖给这个工作台
                 if( (workbench[i].type == 7)
                     && workbench[i].status_rawGrid != 72 && workbench[i].status_rawGrid != 88 && workbench[i].status_rawGrid != 104 ){
-                    return i;
+                    if(cal_Dis(robot[robotID].position_X,robot[robotID].position_Y,workbench[i].position_X,workbench[i].position_Y) < dis){
+                        dis = cal_Dis(robot[robotID].position_X,robot[robotID].position_Y,workbench[i].position_X,workbench[i].position_Y);
+                        temp = i;
+                    }
+
                 }
             }
+            return temp;
         }
         if(robot[robotID].item_ID == 7){
             //找能卖 7 号物品的 8、9 号工作台
-            for (int i = 0; i < workbench[0].sum_workbench; ++i) {
+            for (int i = 1; i <= workbench[0].sum_workbench; ++i) {
                 //判断 是否是 8 、9
                 if( workbench[i].type == 8 || workbench[i].type == 9){
-                    return i;
+                    if(cal_Dis(robot[robotID].position_X,robot[robotID].position_Y,workbench[i].position_X,workbench[i].position_Y) < dis){
+                        dis = cal_Dis(robot[robotID].position_X,robot[robotID].position_Y,workbench[i].position_X,workbench[i].position_Y);
+                        temp = i;
+                    }
                 }
             }
+            return temp;
         }
 
     }
     else{
         //买
+        if(buytype == 1){
+            //找 123
+            for (int i = 1; i <= workbench[0].sum_workbench; ++i) {
+                if( (workbench[i].type == 1 || workbench[i].type == 2 || workbench[i].type == 3 ) && workbench[i].status_prodGrid == 1){
+                    if(cal_Dis(robot[robotID].position_X,robot[robotID].position_Y,workbench[i].position_X,workbench[i].position_Y) < dis){
+                        dis = cal_Dis(robot[robotID].position_X,robot[robotID].position_Y,workbench[i].position_X,workbench[i].position_Y);
+                        temp = i;
+                    }
+                }
+            }
+            return temp;
+        }
+        if(buytype == 2){
+            //找 345
+            for (int i = 1; i <= workbench[0].sum_workbench; ++i) {
+                if( (workbench[i].type == 3 || workbench[i].type == 4 || workbench[i].type == 5 ) && workbench[i].status_prodGrid == 1){
+                    if(cal_Dis(robot[robotID].position_X,robot[robotID].position_Y,workbench[i].position_X,workbench[i].position_Y) < dis){
+                        dis = cal_Dis(robot[robotID].position_X,robot[robotID].position_Y,workbench[i].position_X,workbench[i].position_Y);
+                        temp = i;
+                    }
+                }
+            }
+            return temp;
+        }
+        if(buytype == 3){
+            //找 7
+            for (int i = 1; i <= workbench[0].sum_workbench; ++i) {
+                if( workbench[i].type == 7 && workbench[i].status_prodGrid == 1){
+                    if(cal_Dis(robot[robotID].position_X,robot[robotID].position_Y,workbench[i].position_X,workbench[i].position_Y) < dis){
+                        dis = cal_Dis(robot[robotID].position_X,robot[robotID].position_Y,workbench[i].position_X,workbench[i].position_Y);
+                        temp = i;
+                    }
+                }
+            }
+            return temp;
+        }
+
+
 
     }
 }
