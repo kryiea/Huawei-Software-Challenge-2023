@@ -50,6 +50,7 @@ bool Print_robotOrder(); //输出当前帧的指令集，Ok换行结束
 bool inline readFrameData();// 获取帧信息
 double cal_Dis(double x1, double y1, double x2, double y2);// 距离
 void angle_Adjust(int robot, int targetBench);// 角度调整
+void speed_Adjust(int robot);//速度调整
 void Navigation(int robot, int targetBench);//导航
 void sell_algorithm(int robot);//卖出策略
 void buy_algorithm();//买入策略
@@ -84,7 +85,7 @@ int main() {
         }
         //把在判题器帧数据打印
         ofstream of;
-        of.open("C:/Users/86195/Desktop/out.txt",ios::app);
+        of.open("C:/Users/29755/Desktop/out.txt",ios::app);
         of << frame_ID << ends << money << endl;
         for (int i = 0; i < 4; ++i) {
             of << robot[i].workbench_ID << ends << robot[i].item_ID
@@ -108,8 +109,8 @@ int main() {
 
 /**
   * @brief          :
-  * @param          : 
-  * @retval         : 
+  * @param          :
+  * @retval         :
 */
 void setRobot(int robotID) {
     //
@@ -261,6 +262,16 @@ void angle_Adjust(int robotID, int targetBenchID){
 }
 
 /**
+  * @brief          : 速度调整
+  * @param          : 机器人编号
+  * @retval         :
+*/
+void speed_Adjudt(int robotID){
+    robotOrder.push_back("forward " + to_string(robotID) + "6");
+}
+
+
+/**
   * @brief          : 路线导航
   * @param          : int robot, int targetBench
   * @retval         :
@@ -268,6 +279,7 @@ void angle_Adjust(int robotID, int targetBenchID){
 void Navigation(int robot, int targetBench) {
     //生成旋转指令
     angle_Adjust(robot,targetBench);
+    speed_Adjudt(robot);
     // 生成速度指令
 
     //
@@ -492,4 +504,3 @@ int findBench(int robotID,int sellORbuy, int buytype) {
         }
         of.close();*/
 
-// testpush
