@@ -48,6 +48,7 @@ bool Print_robotOrder(); //输出当前帧的指令集，Ok换行结束
 bool inline readFrameData();// 获取帧信息
 double cal_Dis(double x1, double y1, double x2, double y2);// 距离
 void angle_Adjust(int robot, int targetBench);// 角度调整
+void speed_Adjust(int robot);//速度调整
 void Navigation(int robot, int targetBench);//导航
 void sell_algorithm();//卖出策略
 void buy_algorithm();//买入策略
@@ -223,12 +224,23 @@ void angle_Adjust(int robotID, int targetBenchID){
 }
 
 /**
+  * @brief          : 速度调整
+  * @param          : 机器人编号
+  * @retval         :
+*/
+void speed_Adjudt(int robotID){
+    robotOrder.push_back("forward " + to_string(robotID) + "6");
+}
+
+
+/**
   * @brief          : 路线导航
   * @param          : int robot, int targetBench
   * @retval         :
 */
 void Navigation(int robot, int targetBench) {
     angle_Adjust(robot,targetBench);
+    speed_Adjudt(robot);
 }
 
 /**
@@ -290,7 +302,6 @@ int findBench(int robotID, int typeBench) {
 
 
 
-
 /*
  *  ofstream of;
         of.open("C:/Users/86195/Desktop/out.txt",ios::app);
@@ -308,4 +319,3 @@ int findBench(int robotID, int typeBench) {
         }
         of.close();*/
 
-// testpush
