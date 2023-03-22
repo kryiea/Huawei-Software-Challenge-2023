@@ -267,7 +267,7 @@ void angle_Adjust(int robotID, int targetBenchID){
   * @retval         :
 */
 void speed_Adjudt(int robotID){
-    robotOrder.push_back("forward " + to_string(robotID) + "6");
+    robotOrder.push_back("forward " + to_string(robotID) + " 6");
 }
 
 
