@@ -85,7 +85,7 @@ int main() {
         }
         //把在判题器帧数据打印
         ofstream of;
-        of.open("C:/Users/86195/Desktop/out.txt",ios::app);
+        of.open("C:/Users/29755/Desktop/out.txt",ios::app);
         of << frame_ID << ends << money << endl;
         for (int i = 0; i < 4; ++i) {
             of << robot[i].workbench_ID << ends << robot[i].item_ID
