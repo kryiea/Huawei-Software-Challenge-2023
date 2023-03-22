@@ -51,7 +51,7 @@ void angle_Adjust(int robot, int targetBench);// 角度调整
 void speed_Adjust(int robot);//速度调整
 void Navigation(int robot, int targetBench);//导航
 void sell_algorithm();//卖出策略
-void buy_algorithm();//买入策略
+void buy_algorithm(int robot);//买入策略
 int findBench(int robotID);//找工作台
 
 int main() {
