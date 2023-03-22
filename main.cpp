@@ -83,20 +83,23 @@ int main() {
         for (int i = 0; i < 4; ++i) {
             setRobot(i);
         }
-        //把在判题器帧数据打印
+        //把数据打印
         ofstream of;
-        of.open("C:/Users/29755/Desktop/out.txt");
-        of << frame_ID << ends << money << endl;
-        for (int i = 0; i < 4; ++i) {
-            of << robot[i].workbench_ID << ends << robot[i].item_ID
-               << ends << robot[i].time_Val << ends << robot[i].crash_Val
-               << ends << robot[i].angleSpeed
-               << ends << robot[i].lineSpeed_X << ends << robot[i].lineSpeed_Y
-               << ends << robot[i].angle
-               << ends << robot[i].position_X << ends << robot[i].position_Y << endl;
-        }
-        for (int i = 1; i <= workbench[0].sum_workbench; ++i) {
-            of << i << ends <<workbench[i].position_X << ends << workbench[i].position_Y << ends << workbench[i].time_prodRemaining << ends << workbench[i].status_rawGrid << ends << workbench[i].status_prodGrid << endl;
+        of.open("C:/Users/29755/Desktop/out.txt", ios::app);
+        of << frame_ID << endl ;
+//        for (int i = 0; i < 4; ++i) {
+//            of << robot[i].workbench_ID << ends << robot[i].item_ID
+//               << ends << robot[i].time_Val << ends << robot[i].crash_Val
+//               << ends << robot[i].angleSpeed
+//               << ends << robot[i].lineSpeed_X << ends << robot[i].lineSpeed_Y
+//               << ends << robot[i].angle
+//               << ends << robot[i].position_X << ends << robot[i].position_Y << endl;
+//        }
+//        for (int i = 1; i <= workbench[0].sum_workbench; ++i) {
+//            of << i << ends <<workbench[i].position_X << ends << workbench[i].position_Y << ends << workbench[i].time_prodRemaining << ends << workbench[i].status_rawGrid << ends << workbench[i].status_prodGrid << endl;
+//        }
+        for(auto iter:robotOrder){
+            of << iter << endl;
         }
         of.close();
 
@@ -273,11 +276,11 @@ void angle_Adjust(int robotID, int targetBenchID){
     angle_dis = robot[robotID].angle -  angle_bench_positive;
     if(angle_dis > 0){
         //需要向右调整角度
-        robotOrder.push_back("rotate " + to_string(robotID) + " 2");
+        robotOrder.push_back("rotate " + to_string(robotID) + " 3");
 
     }else if(angle_dis < 0){
         //需要向左调整角度
-        robotOrder.push_back("rotate " + to_string(robotID) + " -2");
+        robotOrder.push_back("rotate " + to_string(robotID) + " -3");
     }else{
         //等于  0， 朝向正确
         robotOrder.push_back("rotate " + to_string(robotID) + " 0");
@@ -292,7 +295,7 @@ void angle_Adjust(int robotID, int targetBenchID){
   * @retval         :
 */
 void speed_Adjudt(int robotID){
-    robotOrder.push_back("forward " + to_string(robotID) + " 6");
+    robotOrder.push_back("forward " + to_string(robotID) + " 1");
 }
 
 
