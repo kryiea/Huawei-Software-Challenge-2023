@@ -62,9 +62,12 @@ int findBench(int robotID,int sellORbuy, int buytype);//找工作台
 void setRobot(int robotID);//设置机器人状态
 void crash_warn_robot(); //机器人之间要碰撞，其中一个机器人放慢速度
 
+
+
+
 int main() {
     //挂载调试
-    //Sleep(20000);
+//    Sleep(20000);
 
     initMap();
     puts("OK");
@@ -79,7 +82,7 @@ int main() {
 
         //把数据打印
         ofstream of;
-        of.open("C:/Users/86195/Desktop/out.txt",ios::app);
+        of.open("C:/Users/29755/Desktop/out.txt",ios::app);
         of << frame_ID << endl ;
         for (int i = 0; i < 4; ++i) {
             of << robot[i].workbench_ID << ends << robot[i].item_ID
@@ -217,8 +220,8 @@ bool inline readFrameData() {
     cin >> s;
     //清空输入缓冲流
     cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-    workbench[50].position_X = 50.0;
-    workbench[50].position_Y = 50.0;
+    workbench[50].position_X = 25.0;
+    workbench[50].position_Y = 25.0;
     return true;
 }
 
@@ -292,19 +295,23 @@ void adjust_Angle(int robotID){
     double angle_dis{};
     angle_dis = robot[robotID].angle -  angle_bench_positive;
     robot[robotID].angleDis = angle_dis;
-    if(angle_dis > 0){
-        //需要向右调整角度
+    //上边界检测，未完成
+    if(robot[robotID].position_X <= 1 && robot[robotID].angle > 0 && robot[robotID].angle < 1.5){
         robotOrder.push_back("rotate " + to_string(robotID) + " -2");
+    }else {
+        if (angle_dis > 0) {
+            //需要向右调整角度
+            robotOrder.push_back("rotate " + to_string(robotID) + " -2");
 
-    }else if(angle_dis < 0){
-        //需要向左调整角度
-        robotOrder.push_back("rotate " + to_string(robotID) + " 2");
-    }else{
-        //等于  0， 朝向正确
-        robotOrder.push_back("rotate " + to_string(robotID) + " 0");
+        } else if (angle_dis < 0) {
+            //需要向左调整角度
+            robotOrder.push_back("rotate " + to_string(robotID) + " 2");
+        } else {
+            //等于  0， 朝向正确
+            robotOrder.push_back("rotate " + to_string(robotID) + " 0");
 
+        }
     }
-
 }
 
 /**
@@ -313,7 +320,12 @@ void adjust_Angle(int robotID){
   * @retval         :
 */
 void adjust_Speed(int robotID){
-    robotOrder.push_back("forward " + to_string(robotID) + " 2");
+    //上边界检测，未完成
+    if(robot[robotID].position_X <= 1 && robot[robotID].angle > 0 && robot[robotID].angle < 1.5 && robot[robotID].lineSpeed_Y != 0){
+        robotOrder.push_back("forward " + to_string(robotID) + " -0.1");
+    }else{
+        robotOrder.push_back("forward " + to_string(robotID) + " 3");
+    }
 }
 
 
@@ -489,7 +501,7 @@ int findBench(int robotID,int sellORbuy, int buytype) {
         if(buytype == 1){
             //找 123
             for (int i = 1; i < workbench[50].sum_workbench; ++i) {
-                if( (workbench[i].type == 1 || workbench[i].type == 2 || workbench[i].type == 3 ) && workbench[i].status_prodGrid == 1){
+                if( (workbench[i].type == 1 || workbench[i].type == 2 || workbench[i].type == 3 ) && workbench[i].time_prodRemaining <= 50){
                     if(cal_Dis(robot[robotID].position_X,robot[robotID].position_Y,workbench[i].position_X,workbench[i].position_Y) < dis){
                         dis = cal_Dis(robot[robotID].position_X,robot[robotID].position_Y,workbench[i].position_X,workbench[i].position_Y);
                         temp = i;
@@ -499,9 +511,9 @@ int findBench(int robotID,int sellORbuy, int buytype) {
             return temp;
         }
         if(buytype == 2){
-            //找 345
+            //找 456
             for (int i = 1; i < workbench[50].sum_workbench; ++i) {
-                if( (workbench[i].type == 3 || workbench[i].type == 4 || workbench[i].type == 5 ) && workbench[i].status_prodGrid == 1){
+                if( (workbench[i].type == 3 || workbench[i].type == 4 || workbench[i].type == 5 ) && workbench[i].sum_workbench == 1){
                     if(cal_Dis(robot[robotID].position_X,robot[robotID].position_Y,workbench[i].position_X,workbench[i].position_Y) < dis){
                         dis = cal_Dis(robot[robotID].position_X,robot[robotID].position_Y,workbench[i].position_X,workbench[i].position_Y);
                         temp = i;
@@ -529,6 +541,8 @@ int findBench(int robotID,int sellORbuy, int buytype) {
     //搜索失败
     return -2;// 重新开始单线，别闲着
 }
+
+
 
 
 
