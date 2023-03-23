@@ -32,7 +32,7 @@ vector<string> robotOrder{};//机器人指令集
 int angle_temp = 1; // 默认惨值改变为-1，默认为1
 
 // 机器人类
-struct robot{
+struct Robot{
     int workbench_ID{}; // -1：不处于工作台附近 [0，总工作台总数-1]: 工作台按顺序排序，0开始
     int item_ID{}; //携带的物品ID，[1,7],  0 表示未携带物品
     double time_Val{}; //时间价值系数: 携带物品时为[0.8, 1]的浮点数，不携带物品时为 0
@@ -83,9 +83,8 @@ void sell_algorithm(int robot);//卖出策略
 void buy_algorithm();//买入策略
 int findBench(int robotID,int sellORbuy, int buytype);//找工作台
 void setRobot(int robotID);//设置机器人状态
-void crash_warn_robot(); //机器人之间要碰撞，其中一个机器人放慢速度
-struct Trajectory dwaControl(int robotID);//dwa算法
-struct robot computeRobotState(int robotID);//生成新状态
+Trajectory dwaControl(int robotID);//dwa算法
+Robot computeRobotState(int robotID);//生成新状态
 double computeCost(struct robot, int targetBench);//计算距离
 
 int main() {
@@ -583,8 +582,8 @@ int findBench(int robotID,int sellORbuy, int buytype) {
   * @param          : 机器人编号，时间分辨率dt
   * @retval         : 机器人结构体
 */
-struct robot computeRobotState(int robotID){
-    struct robot newrobot;
+Robot computeRobotState(int robotID){
+    Robot newrobot;
     newrobot.position_X = robot[robotID].position_X + robot[robotID].lineSpeed_X * dt;
     newrobot.position_Y = robot[robotID].position_Y + robot[robotID].lineSpeed_Y * dt;
     newrobot.angle = robot[robotID].angle + robot[robotID].angleSpeed * dt;
@@ -598,7 +597,7 @@ struct robot computeRobotState(int robotID){
   * @param          : 机器人编号，目标 x y
   * @retval         : 返回代价
 */
-double computeCost(struct robot, int targetBench) {
+double computeCost(Robot, int targetBench) {
     double dx = workbench[targetBench].position_X - robot->position_X;
     double dy = workbench[targetBench].position_Y - robot->position_Y;
     return sqrt(dx * dx + dy * dy);
@@ -623,7 +622,7 @@ struct Trajectory dwaControl(int robotID){
 
         //轨迹预测
         Trajectory traj;
-        struct robot current_robot = robot[robotID];
+        Robot current_robot = robot[robotID];
         for (int j = 0; j < predict_time; ++j) {
             current_robot = computeRobotState(robotID);
             traj.x.push_back(current_robot.position_X);
