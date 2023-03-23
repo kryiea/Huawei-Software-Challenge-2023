@@ -6,30 +6,36 @@
 #include <valarray>
 #include <fstream>
 #include <cmath>
-#include <synchapi.h>
-
 using namespace std;
 
 const int density = 20;// 机器人密度
 const double pi = 3.14159; // 圆周率
 const double MAX = 99999;//最大值
-const double max_v = 6;//最大线速度
-const double max_w = pi;//最大角速度
+const double max_v = 5;//最大线速度
+const double max_w = 4;//最大角速度
 const double min_v = 0;//最小线速度
 const double min_w = 0;//最小线速度
-const double max_acc_v = 15;//最大线加速度
+const double max_acc_v = 16;//最大线加速度
 const double max_acc_w = 10;//最大角加速度
-const double dt = 0.1;//时间分辨率
-const double predict_time = 1.0;//预测时间
-const double goal_tolerance = 0.1;
-const int max_iterations = 100;//最大迭代次数
+const double dt = 0.02;//时间分辨率 20 ms
+const double predict_time = 0.06;//预测时间
+const double goal_tolerance = 0.05; // 到达目标的最大距离
+const int max_iterations = 1000;//最大迭代次数
 
 
-char map[1024]{};
+char map[1024]{};// 没啥用的地图
 int frame_ID{}; // 帧ID
 long int money{}; // 当前金钱
-vector<string> robotOrder{};//机器人指令集
 int angle_temp = 1; // 默认惨值改变为-1，默认为1
+vector<string> robotOrder_0_trade{};//机器人 0 交易指令集: 输出含 1 个一组
+vector<string> robotOrder_1_trade{};//机器人 1 交易指令集: 输出含 1 个一组
+vector<string> robotOrder_2_trade{};//机器人 2 交易指令集: 输出含 1 个一组
+vector<string> robotOrder_3_trade{};//机器人 3 交易指令集: 输出含 1 个一组
+
+vector<string> robotOrder_0_motion{};//机器人 0 运动指令集：输出含 2 个一组
+vector<string> robotOrder_1_motion{};//机器人 1 运动指令集：输出含 2 个一组
+vector<string> robotOrder_2_motion{};//机器人 2 运动指令集：输出含 2 个一组
+vector<string> robotOrder_3_motion{};//机器人 3 运动指令集：输出含 2 个一组
 
 // 机器人类
 struct Robot{
@@ -84,12 +90,16 @@ void buy_algorithm();//买入策略
 int findBench(int robotID,int sellORbuy, int buytype);//找工作台
 void setRobot(int robotID);//设置机器人状态
 Trajectory dwaControl(int robotID);//dwa算法
-Robot computeRobotState(int robotID);//生成新状态
-double computeCost(struct robot, int targetBench);//计算距离
+Robot computeRobotState(int robotID, double v, double w);//生成新状态
+double computeCost(struct robot, int targetBench);//计算代价
 
 int main() {
+
     //挂载调试
     //Sleep(20000);
+
+    // 设置随机数种子
+    srand(time(NULL));
 
     initMap();
     puts("OK");
@@ -97,6 +107,7 @@ int main() {
 
     while(scanf("%d",&frame_ID) != EOF){
         readFrameData();
+
         //规划函数
         for (int i = 0; i < 4; ++i) {
             setRobot(i);
@@ -117,11 +128,20 @@ int main() {
         for (int i = 0; i < workbench[50].sum_workbench; ++i) {
             of << i << ends << workbench[i].type << ends <<workbench[i].position_X << ends << workbench[i].position_Y << ends << workbench[i].time_prodRemaining << ends << workbench[i].status_rawGrid << ends << workbench[i].status_prodGrid << endl;
         }
-        for(auto iter:robotOrder){
-            of << iter << endl;
-        }
-        of.close();
 
+        of << robotOrder_0_motion[0] << endl << robotOrder_0_motion[1] << endl;
+        //of << robotOrder_0_trade[0] << endl;
+
+        of << robotOrder_1_motion[0] << endl << robotOrder_1_motion[1] << endl;
+        //of << robotOrder_1_trade[0] << endl;
+
+        of << robotOrder_2_motion[0] << endl << robotOrder_2_motion[1] << endl;
+        //of << robotOrder_2_trade[0] << endl;
+
+        of << robotOrder_3_motion[0] << endl << robotOrder_3_motion[1] << endl;
+        //of << robotOrder_3_trade[0] << endl;
+
+        of.close();
 
         //输出指令
         Print_robotOrder();
@@ -147,7 +167,23 @@ void setRobot(int robotID) {
     if(robot[robotID].workbench_ID == robot[robotID].targetBench){
         //要卖
         if(robot[robotID].status_sellORbuy == 1){
-            robotOrder.push_back("sell " + to_string(robotID));
+            switch (robotID) {
+                case 0:
+                    robotOrder_0_trade.push_back("sell " + to_string(robotID));
+                    break;
+                case 1:
+                    robotOrder_1_trade.push_back("sell " + to_string(robotID));
+                    break;
+                case 2:
+                    robotOrder_2_trade.push_back("sell " + to_string(robotID));
+                    break;
+                case 3:
+                    robotOrder_3_trade.push_back("sell " + to_string(robotID));
+                    break;
+                default:
+                    break;
+            }
+
             //卖完更新状态，转为要买
             //如果卖的是7，那卖完7重新单线
             if(robot[robotID].item_ID == 7){
@@ -165,7 +201,24 @@ void setRobot(int robotID) {
         }
         if(robot[robotID].status_sellORbuy == 0){
             //要买
-            robotOrder.push_back("buy " + to_string(robotID));
+            if(robot[robotID].status_sellORbuy == 1) {
+                switch (robotID) {
+                    case 0:
+                        robotOrder_0_trade.push_back("buy " + to_string(robotID));
+                        break;
+                    case 1:
+                        robotOrder_1_trade.push_back("buy " + to_string(robotID));
+                        break;
+                    case 2:
+                        robotOrder_2_trade.push_back("buy " + to_string(robotID));
+                        break;
+                    case 3:
+                        robotOrder_3_trade.push_back("buy " + to_string(robotID));
+                        break;
+                    default:
+                        break;
+                }
+            }
             //卖完更新状态，转为要卖
             robot[robotID].item_ID = workbench[robot[robotID].workbench_ID].type;
             robot[robotID].targetBench = -1;
@@ -271,17 +324,76 @@ bool initMap() {
   * @retval         :
 */
 bool Print_robotOrder(){
+
     //输出帧ID
     cout << frame_ID << endl;
+
     //指令
-    for (auto & iter : robotOrder) {
-        cout << iter << endl;
+    //输出机器人 0 运动指令
+    cout << robotOrder_0_motion[0] << endl;
+    robotOrder_0_motion.erase(robotOrder_0_motion.begin());
+    cout << robotOrder_0_motion[0] << endl;
+    robotOrder_0_motion.erase(robotOrder_0_motion.begin());
+
+    //输出机器人 1 运动指令
+    cout << robotOrder_1_motion[0] << endl;
+    robotOrder_1_motion.erase(robotOrder_1_motion.begin());
+    cout << robotOrder_1_motion[0] << endl;
+    robotOrder_1_motion.erase(robotOrder_1_motion.begin());
+
+    //输出机器人 2 运动指令
+    cout << robotOrder_2_motion[0] << endl;
+    robotOrder_2_motion.erase(robotOrder_2_motion.begin());
+    cout << robotOrder_2_motion[0] << endl;
+    robotOrder_2_motion.erase(robotOrder_2_motion.begin());
+
+    //输出机器人 3 运动指令
+    cout << robotOrder_3_motion[0] << endl;
+    robotOrder_3_motion.erase(robotOrder_3_motion.begin());
+    cout << robotOrder_3_motion[0] << endl;
+    robotOrder_3_motion.erase(robotOrder_3_motion.begin());
+
+    if(robot[0].workbench_ID == robot[0].targetBench){
+        //输出机器人 0 交易指令
+        if(!robotOrder_0_trade.empty()){
+            cout << robotOrder_0_trade[0] << endl;
+            robotOrder_0_trade.erase(robotOrder_0_trade.begin());
+        }
+
     }
+
+
+    if(robot[1].workbench_ID == robot[1].targetBench){
+        //输出机器人 1 交易指令
+        if(!robotOrder_1_trade.empty()){
+            cout << robotOrder_1_trade[0] << endl;
+            robotOrder_1_trade.erase(robotOrder_1_trade.begin());
+        }
+
+    }
+
+    if(robot[2].workbench_ID == robot[2].targetBench) {
+        //输出机器人 2 交易指令
+        if (!robotOrder_2_trade.empty()) {
+            cout << robotOrder_2_trade[0] << endl;
+            robotOrder_2_trade.erase(robotOrder_2_trade.begin());
+        }
+    }
+
+        if(robot[3].workbench_ID == robot[3].targetBench) {
+            //输出机器人 3 交易指令
+            if (!robotOrder_3_trade.empty()) {
+                cout << robotOrder_3_trade[0] << endl;
+                robotOrder_3_trade.erase(robotOrder_3_trade.begin());
+            }
+
+        }
+
     //输出OK
     cout << "OK" << endl;
     cout.flush();
-    //清空robotOrder容器，并虎回收空间
-    vector <string>().swap(robotOrder);
+    //清空robotOrder容器，并回收空间
+    //vector <string>().swap(robotOrder);
     return true;
 }
 
@@ -299,7 +411,7 @@ double cal_Dis(double x1, double y1, double x2, double y2){
 
 
 /**
-  * @brief          : 角度调整
+  * @brief          : 角度调整 没用咯
   * @param          : 机器人编号、目标工作台编号
   * @retval         :
 */
@@ -322,24 +434,24 @@ void adjust_Angle(int robotID, double rotate){
     if(rotate == 2.0){
         if(angle_dis > 0){
             //需要向右调整角度
-            robotOrder.push_back("rotate " + to_string(robotID) + " -2" );
+            //orderSet.push_back("rotate " + to_string(robotID) + " -2" );
         }else if(angle_dis < 0){
             //需要向左调整角度
-            robotOrder.push_back("rotate " + to_string(robotID) + " 2" );
+            //orderSet.push_back("rotate " + to_string(robotID) + " 2" );
         }else{
             //等于  0， 朝向正确
-            robotOrder.push_back("rotate " + to_string(robotID) + " 0");
+            //orderSet.push_back("rotate " + to_string(robotID) + " 0");
         }
     }else{
         //非默认传参
-        robotOrder.push_back("rotate " + to_string(robotID) + " " + to_string(rotate));
+        //orderSet.push_back("rotate " + to_string(robotID) + " " + to_string(rotate));
     }
 
 
 }
 
 /**
-  * @brief          : 速度调整
+  * @brief          : 速度调整 没用咯
   * @param          : 机器人编号
   * @retval         :
 */
@@ -348,13 +460,13 @@ void adjust_Speed(int robotID){
         //robotOrder.push_back("forward " + to_string(robotID) + " -4");
         angle_temp = - angle_temp;
         if(robot[robotID].angleSpeed > 0){
-            adjust_Angle(robotID,-3);
+            //adjust_Angle(robotID,-3);
 
         }else{
-            adjust_Angle(robotID,3);
+           // adjust_Angle(robotID,3);
         }
     }else{
-        robotOrder.push_back("forward " + to_string(robotID) + " 4");
+        //orderSet.push_back("forward " + to_string(robotID) + " 4");
     }
 
 }
@@ -366,12 +478,43 @@ void adjust_Speed(int robotID){
   * @retval         :
 */
 void Navigation(int robotID) {
+    /*
     // 生成速度指令
     adjust_Speed(robotID);
 
     //生成旋转指令
     if(angle_temp == -1) return;
     adjust_Angle(robotID);
+*/
+    //每个机器人会得到 6 组 最优轨迹的运动参量数据
+    Trajectory best_traj = dwaControl(robotID);
+    //依次将 v，w 存入指令集，
+    switch (robotID) {
+        case 0:
+            for (int i = 0; i < best_traj.v.size(); ++i) {
+                robotOrder_0_motion.push_back("rotate " + to_string(robotID) + " " + to_string(best_traj.w[i]));
+                robotOrder_0_motion.push_back("forward " + to_string(robotID) + " " + to_string(best_traj.v[i]));
+            }
+            break;
+        case 1:
+            for (int i = 0; i < best_traj.v.size(); ++i) {
+                robotOrder_1_motion.push_back("rotate " + to_string(robotID) + " " + to_string(best_traj.w[i]));
+                robotOrder_1_motion.push_back("forward " + to_string(robotID) + " " + to_string(best_traj.v[i]));
+            }
+            break;
+        case 2:
+            for (int i = 0; i < best_traj.v.size(); ++i) {
+                robotOrder_2_motion.push_back("rotate " + to_string(robotID) + " " + to_string(best_traj.w[i]));
+                robotOrder_2_motion.push_back("forward " + to_string(robotID) + " " + to_string(best_traj.v[i]));
+            }
+            break;
+        case 3:
+            for (int i = 0; i < best_traj.v.size(); ++i) {
+                robotOrder_3_motion.push_back("rotate " + to_string(robotID) + " " + to_string(best_traj.w[i]));
+                robotOrder_3_motion.push_back("forward " + to_string(robotID) + " " + to_string(best_traj.v[i]));
+            }
+            break;
+    }
 
 }
 
@@ -398,8 +541,6 @@ void sell_algorithm(int robotID) {
         case 7:
             break;
     }
-
-
 }
 
 
@@ -582,13 +723,14 @@ int findBench(int robotID,int sellORbuy, int buytype) {
   * @param          : 机器人编号，时间分辨率dt
   * @retval         : 机器人结构体
 */
-Robot computeRobotState(int robotID){
-    Robot newrobot;
+Robot computeRobotState(int robotID, double v, double w){
+    Robot newrobot{};
     newrobot.position_X = robot[robotID].position_X + robot[robotID].lineSpeed_X * dt;
     newrobot.position_Y = robot[robotID].position_Y + robot[robotID].lineSpeed_Y * dt;
     newrobot.angle = robot[robotID].angle + robot[robotID].angleSpeed * dt;
-    newrobot.lineSpeed = robot[robotID].lineSpeed;
-    newrobot.angleSpeed = robot[robotID].angleSpeed;
+
+    newrobot.lineSpeed = v;
+    newrobot.angleSpeed = w;
     return newrobot;
 }
 
@@ -597,10 +739,28 @@ Robot computeRobotState(int robotID){
   * @param          : 机器人编号，目标 x y
   * @retval         : 返回代价
 */
-double computeCost(Robot, int targetBench) {
-    double dx = workbench[targetBench].position_X - robot->position_X;
-    double dy = workbench[targetBench].position_Y - robot->position_Y;
-    return sqrt(dx * dx + dy * dy);
+double computeCost(Robot rrobot, int targetBench) {
+    //忽略朝向角代价、速度代价
+    //只考虑 距离代价
+
+    double vector_robotTobenchX = workbench[rrobot.targetBench].position_X - rrobot.position_X;
+    double vector_robotTobenchY = workbench[rrobot.targetBench].position_Y - rrobot.position_Y;
+    //工作台与以机器人为原点的正方向向量
+    double vector_positiveX = rrobot.position_X;
+    //工作台与以机器人为原点的正方向的夹角
+    double angle_bench_positive {};
+    double cos1 = (vector_robotTobenchX * vector_positiveX)
+                  /
+                  (pow(vector_robotTobenchX * vector_robotTobenchX + vector_robotTobenchY * vector_robotTobenchY,0.5) * pow(vector_positiveX * vector_positiveX,0.5));
+    angle_bench_positive = acos(cos1);
+    //角度差
+    double angle_dis{};
+    angle_dis = rrobot.angle -  angle_bench_positive;
+
+    double dx = workbench[targetBench].position_X - rrobot.position_X;
+    double dy = workbench[targetBench].position_Y - rrobot.position_Y;
+
+    return sqrt(dx * dx + dy * dy) + 2.0 * angle_dis;
 }
 
 /**
@@ -608,23 +768,29 @@ double computeCost(Robot, int targetBench) {
   * @param          : 待规划的机器人ID
   * @retval         : 最优方案
 */
-struct Trajectory dwaControl(int robotID){
+Trajectory dwaControl(int robotID){
     Trajectory best_trajectory;
     double best_cost = INFINITY;
 
     //迭代计算最优轨迹
     for (int i = 0; i < max_iterations; ++i) {
-        //输入的数据
-        double v = robot[robotID].lineSpeed;
-        double w = robot[robotID].angleSpeed;
-        double acc_v = max_acc_v;
-        double acc_w = max_acc_w;
+//        //输入的数据
+//        double v = robot[robotID].lineSpeed;
+//        double w = robot[robotID].angleSpeed;
+//        double acc_v = max_acc_v;
+//        double acc_w = max_acc_w;
+
+        // 随机生成控制输入
+        double v = ((double)rand() / RAND_MAX) * (max_v - min_v) + min_v;
+        double w = ((double)rand() / RAND_MAX) * (max_w - min_w) + min_w;
+        double acc_v = ((double)rand() / RAND_MAX) * 2.0 * max_acc_v - max_acc_v;
+        double acc_w = ((double)rand() / RAND_MAX) * 2.0 * max_acc_w - max_acc_w;
 
         //轨迹预测
         Trajectory traj;
         Robot current_robot = robot[robotID];
-        for (int j = 0; j < predict_time; ++j) {
-            current_robot = computeRobotState(robotID);
+        for (int j = 0; j < predict_time * 1000; ++j) {
+            current_robot = computeRobotState(robotID,v,w);
             traj.x.push_back(current_robot.position_X);
             traj.y.push_back(current_robot.position_Y);
             traj.theta.push_back(current_robot.angle);
@@ -637,9 +803,8 @@ struct Trajectory dwaControl(int robotID){
             v = max(min(v,max_v),min_v);
             w = max(min(w,max_w),min_w);
         }
-        //计算代价
+        //计算代价：现在是距离优先，不考虑朝向角代价和速度代价,所以基本是直线最短
         double cost = computeCost(current_robot,robot[robotID].targetBench);
-
         //更新最优轨迹
         if(cost < best_cost){
             best_trajectory = traj;
@@ -674,5 +839,7 @@ struct Trajectory dwaControl(int robotID){
         for (int i = 1; i <= workbench[0].sum_workbench; ++i) {
             of << i << ends <<workbench[i].position_X << ends << workbench[i].position_Y << ends << workbench[i].time_prodRemaining << ends << workbench[i].status_rawGrid << ends << workbench[i].status_prodGrid << endl;
         }
-        of.close();*/
+        of.close();
+
+*/
 
