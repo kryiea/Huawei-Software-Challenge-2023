@@ -18,6 +18,7 @@ char map[1024]{};
 int frame_ID{}; // 帧ID
 long int money{}; // 当前金钱
 vector<string> robotOrder{};//机器人指令集
+int angle_temp = 1; // 默认惨值改变为-1，默认为1
 
 // 机器人类
 struct robot{
@@ -53,7 +54,7 @@ bool initMap(); // 读取地图信息
 bool Print_robotOrder(); //输出当前帧的指令集，Ok换行结束
 bool inline readFrameData();// 获取帧信息
 double cal_Dis(double x1, double y1, double x2, double y2);// 距离
-void adjust_Angle(int robotID);// 角度调整
+void adjust_Angle(int robotID, double rotate = 2);// 角度调整
 void adjust_Speed(int robot);//速度调整
 void Navigation(int robot);//导航
 void sell_algorithm(int robot);//卖出策略
@@ -217,8 +218,8 @@ bool inline readFrameData() {
     cin >> s;
     //清空输入缓冲流
     cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-    workbench[50].position_X = 50.0;
-    workbench[50].position_Y = 50.0;
+    workbench[50].position_X = 25.0;
+    workbench[50].position_Y = 25.0;
     return true;
 }
 
@@ -276,7 +277,7 @@ double cal_Dis(double x1, double y1, double x2, double y2){
   * @param          : 机器人编号、目标工作台编号
   * @retval         :
 */
-void adjust_Angle(int robotID){
+void adjust_Angle(int robotID, double rotate){
     //机器人和目标点的向量 X Y
     double vector_robotTobenchX = workbench[robot[robotID].targetBench].position_X - robot[robotID].position_X;
     double vector_robotTobenchY = workbench[robot[robotID].targetBench].position_Y - robot[robotID].position_Y;
@@ -292,18 +293,22 @@ void adjust_Angle(int robotID){
     double angle_dis{};
     angle_dis = robot[robotID].angle -  angle_bench_positive;
     robot[robotID].angleDis = angle_dis;
-    if(angle_dis > 0){
-        //需要向右调整角度
-        robotOrder.push_back("rotate " + to_string(robotID) + " -2");
-
-    }else if(angle_dis < 0){
-        //需要向左调整角度
-        robotOrder.push_back("rotate " + to_string(robotID) + " 2");
+    if(rotate == 2.0){
+        if(angle_dis > 0){
+            //需要向右调整角度
+            robotOrder.push_back("rotate " + to_string(robotID) + " -2" );
+        }else if(angle_dis < 0){
+            //需要向左调整角度
+            robotOrder.push_back("rotate " + to_string(robotID) + " 2" );
+        }else{
+            //等于  0， 朝向正确
+            robotOrder.push_back("rotate " + to_string(robotID) + " 0");
+        }
     }else{
-        //等于  0， 朝向正确
-        robotOrder.push_back("rotate " + to_string(robotID) + " 0");
-
+        //非默认传参
+        robotOrder.push_back("rotate " + to_string(robotID) + " " + to_string(rotate));
     }
+
 
 }
 
@@ -313,7 +318,19 @@ void adjust_Angle(int robotID){
   * @retval         :
 */
 void adjust_Speed(int robotID){
-    robotOrder.push_back("forward " + to_string(robotID) + " 2");
+    if(robot[robotID].position_X <= 0.8 || robot[robotID].position_X >= 49 || robot[robotID].position_Y <= 0.8 || robot[robotID].position_Y >= 49) {
+        //robotOrder.push_back("forward " + to_string(robotID) + " -4");
+        angle_temp = - angle_temp;
+        if(robot[robotID].angleSpeed > 0){
+            adjust_Angle(robotID,-3);
+
+        }else{
+            adjust_Angle(robotID,3);
+        }
+    }else{
+        robotOrder.push_back("forward " + to_string(robotID) + " 4");
+    }
+
 }
 
 
@@ -323,10 +340,13 @@ void adjust_Speed(int robotID){
   * @retval         :
 */
 void Navigation(int robotID) {
-    //生成旋转指令
-    adjust_Angle(robotID);
     // 生成速度指令
     adjust_Speed(robotID);
+
+    //生成旋转指令
+    if(angle_temp == -1) return;
+    adjust_Angle(robotID);
+
 }
 
 /**
