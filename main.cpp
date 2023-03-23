@@ -501,6 +501,7 @@ int findBench(int robotID,int sellORbuy, int buytype) {
         if(buytype == 1){
             //找 123
             for (int i = 1; i < workbench[50].sum_workbench; ++i) {
+                //此处低级工作台采用剩余生产时间判定，代替原有的是否有货，解决了开局扎堆同一个工作台的问题
                 if( (workbench[i].type == 1 || workbench[i].type == 2 || workbench[i].type == 3 ) && workbench[i].time_prodRemaining <= 50){
                     if(cal_Dis(robot[robotID].position_X,robot[robotID].position_Y,workbench[i].position_X,workbench[i].position_Y) < dis){
                         dis = cal_Dis(robot[robotID].position_X,robot[robotID].position_Y,workbench[i].position_X,workbench[i].position_Y);
