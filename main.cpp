@@ -13,6 +13,17 @@ using namespace std;
 const int density = 20;// 机器人密度
 const double pi = 3.14159; // 圆周率
 const double MAX = 99999;//最大值
+const double max_v = 6;//最大线速度
+const double max_w = pi;//最大角速度
+const double min_v = 0;//最小线速度
+const double min_w = 0;//最小线速度
+const double max_acc_v = 15;//最大线加速度
+const double max_acc_w = 10;//最大角加速度
+const double dt = 0.1;//时间分辨率
+const double predict_time = 1.0;//预测时间
+const double goal_tolerance = 0.1;
+const int max_iterations = 100;//最大迭代次数
+
 
 char map[1024]{};
 int frame_ID{}; // 帧ID
@@ -29,6 +40,7 @@ struct robot{
     double angleSpeed{};//单位：弧度/秒。正数：表示逆时针。
     double lineSpeed_X{};//由二维向量描述线速度，单位：米/秒
     double lineSpeed_Y{};//由二维向量描述线速度，单位：米/秒
+    double lineSpeed{};
     double angle{}; // 朝向：弧度范围范围[-π,π]。方向示例：0：表示右方向。π/2：表示上方向。-π/2：表示下方向
     double position_X{};//浮点坐标x y
     double position_Y{};//浮点坐标x y
@@ -50,6 +62,16 @@ struct workbench{
     int sum_workbench{}; //当前地图工作台总数 存在workbench[0]中
 }workbench[51];//工作台按顺序排序，1开始
 
+// 轨迹的结构体
+struct Trajectory {
+    vector<double> x;   // 轨迹的x坐标
+    vector<double> y;   // 轨迹的y坐标
+    vector<double> theta;// 轨迹的角度
+    vector<double> v;   // 轨迹的线速度
+    vector<double> w;   // 轨迹的角速度
+};
+
+
 bool initMap(); // 读取地图信息
 bool Print_robotOrder(); //输出当前帧的指令集，Ok换行结束
 bool inline readFrameData();// 获取帧信息
@@ -62,6 +84,9 @@ void buy_algorithm();//买入策略
 int findBench(int robotID,int sellORbuy, int buytype);//找工作台
 void setRobot(int robotID);//设置机器人状态
 void crash_warn_robot(); //机器人之间要碰撞，其中一个机器人放慢速度
+struct Trajectory dwaControl(int robotID);//dwa算法
+struct robot computeRobotState(int robotID);//生成新状态
+double computeCost(struct robot, int targetBench);//计算距离
 
 int main() {
     //挂载调试
@@ -205,6 +230,8 @@ bool inline readFrameData() {
             >> robot[j].lineSpeed_X >> robot[j].lineSpeed_Y
             >> robot[j].angle
             >> robot[j].position_X >> robot[j].position_Y;
+        //计算线速度大小
+        robot[j].lineSpeed = sqrt(robot[j].lineSpeed_X * robot[j].lineSpeed_X + robot[j].lineSpeed_Y * robot[j].lineSpeed_Y);
         //确定当前半径
         if(robot[j].item_ID == 0)   robot[j].r = 0.45;
         else robot[j].r = 0.53;
@@ -549,6 +576,84 @@ int findBench(int robotID,int sellORbuy, int buytype) {
     //搜索失败
     return -2;// 重新开始单线，别闲着
 }
+
+
+/**
+  * @brief          : 机器人状态函数
+  * @param          : 机器人编号，时间分辨率dt
+  * @retval         : 机器人结构体
+*/
+struct robot computeRobotState(int robotID){
+    struct robot newrobot;
+    newrobot.position_X = robot[robotID].position_X + robot[robotID].lineSpeed_X * dt;
+    newrobot.position_Y = robot[robotID].position_Y + robot[robotID].lineSpeed_Y * dt;
+    newrobot.angle = robot[robotID].angle + robot[robotID].angleSpeed * dt;
+    newrobot.lineSpeed = robot[robotID].lineSpeed;
+    newrobot.angleSpeed = robot[robotID].angleSpeed;
+    return newrobot;
+}
+
+/**
+  * @brief          : 计算距离代价函数
+  * @param          : 机器人编号，目标 x y
+  * @retval         : 返回代价
+*/
+double computeCost(struct robot, int targetBench) {
+    double dx = workbench[targetBench].position_X - robot->position_X;
+    double dy = workbench[targetBench].position_Y - robot->position_Y;
+    return sqrt(dx * dx + dy * dy);
+}
+
+/**
+  * @brief          : DWA算法
+  * @param          : 待规划的机器人ID
+  * @retval         : 最优方案
+*/
+struct Trajectory dwaControl(int robotID){
+    Trajectory best_trajectory;
+    double best_cost = INFINITY;
+
+    //迭代计算最优轨迹
+    for (int i = 0; i < max_iterations; ++i) {
+        //输入的数据
+        double v = robot[robotID].lineSpeed;
+        double w = robot[robotID].angleSpeed;
+        double acc_v = max_acc_v;
+        double acc_w = max_acc_w;
+
+        //轨迹预测
+        Trajectory traj;
+        struct robot current_robot = robot[robotID];
+        for (int j = 0; j < predict_time; ++j) {
+            current_robot = computeRobotState(robotID);
+            traj.x.push_back(current_robot.position_X);
+            traj.y.push_back(current_robot.position_Y);
+            traj.theta.push_back(current_robot.angle);
+            traj.v.push_back(current_robot.lineSpeed);
+            traj.w.push_back(current_robot.angleSpeed);
+
+            //应用加速度限制
+            v += acc_v * dt;
+            w += acc_w * dt;
+            v = max(min(v,max_v),min_v);
+            w = max(min(w,max_w),min_w);
+        }
+        //计算代价
+        double cost = computeCost(current_robot,robot[robotID].targetBench);
+
+        //更新最优轨迹
+        if(cost < best_cost){
+            best_trajectory = traj;
+            best_cost = cost;
+            // 判断是否达到目标
+            if (cost < goal_tolerance) {
+                break;
+            }
+        }
+    }
+    return best_trajectory;
+}
+
 
 
 
