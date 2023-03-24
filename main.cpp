@@ -131,7 +131,7 @@ int main() {
 
         //把数据打印
         ofstream of;
-        of.open("C:/Users/86195/Desktop/out.txt",ios::app);
+        of.open("C:/Users/29755/Desktop/out.txt",ios::app);
         of << frame_ID << endl ;
         for (int i = 0; i < 4; ++i) {
             of << robot[i].workbench_ID << ends << robot[i].item_ID
@@ -848,8 +848,8 @@ ControlAction dwaControl_gpt(int robotID){
     double cur_w = robot[robotID].angleSpeed;
 
     //当前状态下，能达到的最大线速度/角速度范围
-    double v_range[] = {cur_v - max_acc_v * dt, cur_v + max_acc_v * dt};
-    double w_range[] = {cur_w - max_acc_w * dt, cur_w + max_acc_w * dt};
+    double v_range[] = {cur_v - max_acc_v * dt * 3, cur_v + max_acc_v * dt * 3};
+    double w_range[] = {cur_w - max_acc_w * dt * 3, cur_w + max_acc_w * dt * 3};
 
     //定义最佳控制动作
     ControlAction best_action = {0.0, 0.0};
@@ -904,10 +904,10 @@ double costFunction_gpt(int robotID, Robot current_state){
     double dtheta = acos(cos1);
 
 
-    double heading_cost = heading_weight * abs(dtheta - current_state.angle);
+    double heading_cost = heading_weight * abs(dtheta - current_state.angle) * 3;
     double distance_cost = distance_weight * sqrt(pow(workbench[robot[robotID].targetBench].position_X- current_state.position_X, 2) + pow(workbench[robot[robotID].targetBench].position_Y - current_state.position_Y, 2));
-    //double velocity_cost = velocity_weight * abs(robot[robotID].lineSpeed - current_state.lineSpeed);
-    return heading_cost + distance_cost;
+    double velocity_cost = -velocity_weight * abs(current_state.lineSpeed);
+    return heading_cost + distance_cost * 100 + velocity_cost;
 
 
 
