@@ -99,6 +99,7 @@ Trajectory dwaControl(int robotID);//dwa算法
 Robot computeRobotState(int robotID, double v, double w);//生成新状态
 double computeCost(struct robot, int targetBench);//计算代价
 double costFunction_gpt(int robotID, Robot goal_state);//gpt 代价函数
+Trajectory dwaControl_gpt(int robotID);//gpt dwa控制
 
 
 void adjust_Angle(int robotID, double rotate = 2);// 角度调整
@@ -769,7 +770,7 @@ Trajectory dwaControl(int robotID){
         //轨迹预测
         Trajectory traj;
         Robot current_robot = robot[robotID];
-        for (int j = 0; j < predict_time * 1000; ++j) {
+        for (int j = 0; j < predict_time * 10; ++j) {
             current_robot = computeRobotState(robotID,v,w);
             traj.x.push_back(current_robot.position_X);
             traj.y.push_back(current_robot.position_Y);
@@ -794,19 +795,67 @@ Trajectory dwaControl(int robotID){
                 break;
             }
         }
-    }//
+    }
     return best_trajectory;
 }
 
 
+Trajectory dwaControl_gpt(int robotID){
+    Robot current_robot = robot[robotID];
 
+    //当前线速度
+    double cur_v = current_robot.lineSpeed_X;
+    //当前角速度
+    double cur_w = current_robot.lineSpeed_Y;
+
+    //当前状态下，能达到的最大线速度/角速度范围
+    double v_range[] = {cur_v - max_acc_v * dt, cur_v + max_acc_v * dt};
+    double w_range[] = {cur_w - max_acc_w * dt, cur_w + max_acc_w * dt};
+
+    //最优轨迹
+    Trajectory best_traj{};
+    //最小花费
+    double min_cost;
+    //速度步进
+    double predict_step = 0.1;
+
+    for(double v = v_range[0]; v <= v_range[1]; v += max_acc_v * predict_step){
+        for(double w = w_range[0]; w <= w_range[1]; w += max_acc_w * predict_step){
+            //预测时间
+            double time = 0.0;
+            Trajectory traj{};
+            while(time < predict_time){
+                //下一时刻的预测点
+                current_robot.angleSpeed = current_robot.angle + w * dt;
+                current_robot.angle = current_robot.angle + w * dt;
+                current_robot.position_X = current_robot.lineSpeed_X + current_robot.lineSpeed_X * dt;
+                current_robot.position_Y = current_robot.lineSpeed_Y + current_robot.lineSpeed_Y * dt;
+                current_robot.lineSpeed = v + v * dt;
+
+                traj.x.push_back(current_robot.position_X);
+                traj.y.push_back(current_robot.position_Y);
+                traj.theta.push_back(current_robot.angle);
+                traj.v.push_back(current_robot.lineSpeed);
+                traj.w.push_back(current_robot.angleSpeed);
+
+                time += dt;
+            }
+
+            //本次预测轨迹的代价
+            double cost = costFunction_gpt(robotID, current_robot);
+            if(cost < min_cost){
+                best_traj = traj;
+            }
+        }
+    }
+    return best_traj;
+}
 double costFunction_gpt(int robotID, Robot goal_state){
     double heading_cost = heading_weight * abs(robot[robotID].angle- goal_state.angle);
     double distance_cost = distance_weight * sqrt(pow(robot[robotID].position_X- goal_state.position_X, 2) + pow(robot[robotID].position_Y - goal_state.position_Y, 2));
     double velocity_cost = velocity_weight * abs(robot[robotID].lineSpeed - goal_state.lineSpeed);
     return heading_cost + distance_cost + velocity_cost;
 }
-
 
 
 
