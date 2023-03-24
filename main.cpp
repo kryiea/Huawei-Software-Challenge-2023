@@ -6,6 +6,8 @@
 #include <valarray>
 #include <fstream>
 #include <cmath>
+#include <synchapi.h>
+
 using namespace std;
 
 const int density = 20;// 机器人密度
@@ -18,9 +20,9 @@ const double min_w = 0;//最小线速度
 const double max_acc_v = 16;//最大线加速度
 const double max_acc_w = 10;//最大角加速度
 const double dt = 0.02;//时间分辨率 20 ms
-const double predict_time = 0.06;//预测时间
+const double predict_time = 0.1;//预测时间
 const double goal_tolerance = 0.05; // 到达目标的最大距离
-const int max_iterations = 1000;//最大迭代次数
+const int max_iterations = 100;//最大迭代次数
 
 
 char map[1024]{};// 没啥用的地图
@@ -81,22 +83,23 @@ struct Trajectory {
 bool initMap(); // 读取地图信息
 bool Print_robotOrder(); //输出当前帧的指令集，Ok换行结束
 bool inline readFrameData();// 获取帧信息
-double cal_Dis(double x1, double y1, double x2, double y2);// 距离
-void adjust_Angle(int robotID, double rotate = 2);// 角度调整
-void adjust_Speed(int robot);//速度调整
+double cal_Dis(double x1, double y1, double x2, double y2);// 计算距离
 void Navigation(int robot);//导航
-void sell_algorithm(int robot);//卖出策略
-void buy_algorithm();//买入策略
 int findBench(int robotID,int sellORbuy, int buytype);//找工作台
 void setRobot(int robotID);//设置机器人状态
 Trajectory dwaControl(int robotID);//dwa算法
 Robot computeRobotState(int robotID, double v, double w);//生成新状态
 double computeCost(struct robot, int targetBench);//计算代价
 
+void adjust_Angle(int robotID, double rotate = 2);// 角度调整
+void adjust_Speed(int robot);//速度调整
+void sell_algorithm(int robot);//卖出策略
+void buy_algorithm();//买入策略
+
 int main() {
 
     //挂载调试
-    //Sleep(20000);
+    Sleep(20000);
 
     // 设置随机数种子
     srand(time(NULL));
@@ -523,25 +526,7 @@ void Navigation(int robotID) {
   * @param          : 
   * @retval         : 
 */
-void sell_algorithm(int robotID) {
-    switch(robot[robotID].item_ID) {
-        case 1:
-            //findBench();
-            break;
-        case 2:
-            break;
-        case 3:
-            break;
-        case 4:
-            break;
-        case 5:
-            break;
-        case 6:
-            break;
-        case 7:
-            break;
-    }
-}
+void sell_algorithm(int robotID) {}
 
 
 
@@ -550,9 +535,7 @@ void sell_algorithm(int robotID) {
   * @param          : 
   * @retval         : 
 */
-void buy_algorithm() {
-
-}
+void buy_algorithm() {}
 
 
 
@@ -740,27 +723,14 @@ Robot computeRobotState(int robotID, double v, double w){
   * @retval         : 返回代价
 */
 double computeCost(Robot rrobot, int targetBench) {
-    //忽略朝向角代价、速度代价
-    //只考虑 距离代价
-
-    double vector_robotTobenchX = workbench[rrobot.targetBench].position_X - rrobot.position_X;
-    double vector_robotTobenchY = workbench[rrobot.targetBench].position_Y - rrobot.position_Y;
-    //工作台与以机器人为原点的正方向向量
-    double vector_positiveX = rrobot.position_X;
-    //工作台与以机器人为原点的正方向的夹角
-    double angle_bench_positive {};
-    double cos1 = (vector_robotTobenchX * vector_positiveX)
-                  /
-                  (pow(vector_robotTobenchX * vector_robotTobenchX + vector_robotTobenchY * vector_robotTobenchY,0.5) * pow(vector_positiveX * vector_positiveX,0.5));
-    angle_bench_positive = acos(cos1);
-    //角度差
-    double angle_dis{};
-    angle_dis = rrobot.angle -  angle_bench_positive;
+    //忽略速度代价
+    //只考虑 距离代价 、朝向角代价
 
     double dx = workbench[targetBench].position_X - rrobot.position_X;
     double dy = workbench[targetBench].position_Y - rrobot.position_Y;
+    double dtheta = atan2(dy, dx);  // 使用反正切函数计算方向角度
 
-    return sqrt(dx * dx + dy * dy) + 2.0 * angle_dis;
+    return sqrt(dx * dx + dy * dy) + 2.0 * dtheta;
 }
 
 /**
@@ -774,11 +744,6 @@ Trajectory dwaControl(int robotID){
 
     //迭代计算最优轨迹
     for (int i = 0; i < max_iterations; ++i) {
-//        //输入的数据
-//        double v = robot[robotID].lineSpeed;
-//        double w = robot[robotID].angleSpeed;
-//        double acc_v = max_acc_v;
-//        double acc_w = max_acc_w;
 
         // 随机生成控制输入
         double v = ((double)rand() / RAND_MAX) * (max_v - min_v) + min_v;
