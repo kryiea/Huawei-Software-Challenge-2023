@@ -6,7 +6,7 @@
 #include <valarray>
 #include <fstream>
 #include <cmath>
-#include <synchapi.h>
+#include <windows.h>
 
 using namespace std;
 
@@ -21,9 +21,12 @@ const double max_acc_v = 16;//最大线加速度
 const double max_acc_w = 10;//最大角加速度
 const double dt = 0.02;//时间分辨率 20 ms
 const double predict_time = 0.1;//预测时间
+const double predict_step = 0.1;
 const double goal_tolerance = 0.05; // 到达目标的最大距离
 const int max_iterations = 100;//最大迭代次数
-
+const double heading_weight = 1.0; //朝向权重
+const double distance_weight = 1.0; // 距离权重
+const double velocity_weight = 0.5; // 速度权重
 
 char map[1024]{};// 没啥用的地图
 int frame_ID{}; // 帧ID
@@ -79,6 +82,11 @@ struct Trajectory {
     vector<double> w;   // 轨迹的角速度
 };
 
+// 控制动作
+struct ControlAction {
+    double v;   // 速度
+    double w;   // 角速度
+};
 
 bool initMap(); // 读取地图信息
 bool Print_robotOrder(); //输出当前帧的指令集，Ok换行结束
@@ -90,6 +98,8 @@ void setRobot(int robotID);//设置机器人状态
 Trajectory dwaControl(int robotID);//dwa算法
 Robot computeRobotState(int robotID, double v, double w);//生成新状态
 double computeCost(struct robot, int targetBench);//计算代价
+double costFunction_gpt(int robotID, Robot goal_state);//gpt 代价函数
+
 
 void adjust_Angle(int robotID, double rotate = 2);// 角度调整
 void adjust_Speed(int robot);//速度调整
@@ -99,15 +109,17 @@ void buy_algorithm();//买入策略
 int main() {
 
     //挂载调试
-    Sleep(20000);
+
+//    Sleep(10000);
 
     // 设置随机数种子
-    srand(time(NULL));
+
 
     initMap();
     puts("OK");
     cout.flush();
 
+    srand(time(NULL));
     while(scanf("%d",&frame_ID) != EOF){
         readFrameData();
 
@@ -717,6 +729,9 @@ Robot computeRobotState(int robotID, double v, double w){
     return newrobot;
 }
 
+
+
+
 /**
   * @brief          : 计算距离代价函数
   * @param          : 机器人编号，目标 x y
@@ -785,6 +800,12 @@ Trajectory dwaControl(int robotID){
 
 
 
+double costFunction_gpt(int robotID, Robot goal_state){
+    double heading_cost = heading_weight * abs(robot[robotID].angle- goal_state.angle);
+    double distance_cost = distance_weight * sqrt(pow(robot[robotID].position_X- goal_state.position_X, 2) + pow(robot[robotID].position_Y - goal_state.position_Y, 2));
+    double velocity_cost = velocity_weight * abs(robot[robotID].lineSpeed - goal_state.lineSpeed);
+    return heading_cost + distance_cost + velocity_cost;
+}
 
 
 
