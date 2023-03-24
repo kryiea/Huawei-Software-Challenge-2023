@@ -21,7 +21,7 @@ const double max_acc_v = 16;//最大线加速度
 const double max_acc_w = 10;//最大角加速度
 const double dt = 0.02;//时间分辨率 20 ms
 const double predict_time = 0.1;//预测时间
-const double predict_step = 0.1;
+const double predict_step = 0.02;
 const double goal_tolerance = 0.05; // 到达目标的最大距离
 const int max_iterations = 100;//最大迭代次数
 const double heading_weight = 1.0; //朝向权重
@@ -98,8 +98,8 @@ void setRobot(int robotID);//设置机器人状态
 Trajectory dwaControl(int robotID);//dwa算法
 Robot computeRobotState(int robotID, double v, double w);//生成新状态
 double computeCost(struct robot, int targetBench);//计算代价
-double costFunction_gpt(int robotID, Robot goal_state);//gpt 代价函数
-Trajectory dwaControl_gpt(int robotID);//gpt dwa控制
+double costFunction_gpt(int robotID, Robot current_state);//gpt 代价函数
+ControlAction dwaControl_gpt(int robotID);//gpt dwa控制
 
 
 void adjust_Angle(int robotID, double rotate = 2);// 角度调整
@@ -139,7 +139,7 @@ int main() {
                << ends << robot[i].angleSpeed
                << ends << robot[i].lineSpeed_X << ends << robot[i].lineSpeed_Y
                << ends << robot[i].angle
-               << ends << robot[i].position_X << ends << robot[i].position_Y << ends << robot[i].targetBench <<  ends << robot[i].angleDis <<endl;
+               << ends << robot[i].position_X << ends << robot[i].position_Y << ends << robot[i].targetBench <<  ends << robot[i].status_sellORbuy <<endl;
         }
         for (int i = 0; i < workbench[50].sum_workbench; ++i) {
             of << i << ends << workbench[i].type << ends <<workbench[i].position_X << ends << workbench[i].position_Y << ends << workbench[i].time_prodRemaining << ends << workbench[i].status_rawGrid << ends << workbench[i].status_prodGrid << endl;
@@ -181,6 +181,7 @@ void setRobot(int robotID) {
 
     //是否在目标工作台附近
     if(robot[robotID].workbench_ID == robot[robotID].targetBench){
+
         //要卖
         if(robot[robotID].status_sellORbuy == 1){
             switch (robotID) {
@@ -215,26 +216,26 @@ void setRobot(int robotID) {
             }
 
         }
+
         if(robot[robotID].status_sellORbuy == 0){
             //要买
-            if(robot[robotID].status_sellORbuy == 1) {
-                switch (robotID) {
-                    case 0:
-                        robotOrder_0_trade.push_back("buy " + to_string(robotID));
-                        break;
-                    case 1:
-                        robotOrder_1_trade.push_back("buy " + to_string(robotID));
-                        break;
-                    case 2:
-                        robotOrder_2_trade.push_back("buy " + to_string(robotID));
-                        break;
-                    case 3:
-                        robotOrder_3_trade.push_back("buy " + to_string(robotID));
-                        break;
-                    default:
-                        break;
-                }
+            switch (robotID) {
+                case 0:
+                    robotOrder_0_trade.push_back("buy " + to_string(robotID));
+                    break;
+                case 1:
+                    robotOrder_1_trade.push_back("buy " + to_string(robotID));
+                    break;
+                case 2:
+                    robotOrder_2_trade.push_back("buy " + to_string(robotID));
+                    break;
+                case 3:
+                    robotOrder_3_trade.push_back("buy " + to_string(robotID));
+                    break;
+                default:
+                    break;
             }
+
             //卖完更新状态，转为要卖
             robot[robotID].item_ID = workbench[robot[robotID].workbench_ID].type;
             robot[robotID].targetBench = -1;
@@ -246,25 +247,33 @@ void setRobot(int robotID) {
 
     //下一步卖
     if (robot[robotID].status_sellORbuy == 1) {
-        robot[robotID].targetBench = findBench(robotID, 1, 0);
+        if(robot[robotID].targetBench != -1){
+            robot[robotID].targetBench = findBench(robotID, 1, 0);
+        }
         Navigation(robotID);
     }
     else {
     //下一步 买
         if (robot[robotID].level == 1) {
             // 买 123
-            robot[robotID].targetBench = findBench(robotID,0,1);
+            if(robot[robotID].targetBench != -1){
+                robot[robotID].targetBench = findBench(robotID,0,1);
+            }
             Navigation(robotID);
         }
         if (robot[robotID].level == 2) {
             //买 456
-            robot[robotID].targetBench = findBench(robotID,0,2);
+            if(robot[robotID].targetBench != -1){
+                robot[robotID].targetBench = findBench(robotID,0,2);
+            }
             Navigation(robotID);
 
         }
         if (robot[robotID].level == 3) {
             //买 7
-            robot[robotID].targetBench = findBench(robotID,0,3);
+            if(robot[robotID].targetBench != -1){
+                robot[robotID].targetBench = findBench(robotID,0,3);
+            }
             Navigation(robotID);
         }
     }
@@ -306,7 +315,7 @@ bool inline readFrameData() {
         //计算质量
         robot[j].mass = pi * robot[j].r * robot[j].r * density;
         //将angle (-pi,pi) 转成(0,2pi)
-        if(robot[j].angle < 0 ) robot[j].angle = pi - robot[j].angle;
+        if(robot[j].angle < 0 ) robot[j].angle = 2 * pi + robot[j].angle;
 
     }
     string s;
@@ -502,8 +511,12 @@ void Navigation(int robotID) {
     if(angle_temp == -1) return;
     adjust_Angle(robotID);
 */
+
+/*
     //每个机器人会得到 6 组 最优轨迹的运动参量数据
     Trajectory best_traj = dwaControl(robotID);
+
+
     //依次将 v，w 存入指令集，
     switch (robotID) {
         case 0:
@@ -529,6 +542,34 @@ void Navigation(int robotID) {
                 robotOrder_3_motion.push_back("rotate " + to_string(robotID) + " " + to_string(best_traj.w[i]));
                 robotOrder_3_motion.push_back("forward " + to_string(robotID) + " " + to_string(best_traj.v[i]));
             }
+            break;
+    }
+*/
+
+
+
+    //gpt 运行DWA算法
+    ControlAction best_action = dwaControl_gpt(robotID);
+
+    switch (robotID) {
+        case 0:
+            robotOrder_0_motion.push_back("rotate " + to_string(robotID) + " " + to_string(best_action.w));
+            robotOrder_0_motion.push_back("forward " + to_string(robotID) + " " + to_string(best_action.v));
+
+            break;
+        case 1:
+            robotOrder_1_motion.push_back("rotate " + to_string(robotID) + " " + to_string(best_action.w));
+            robotOrder_1_motion.push_back("forward " + to_string(robotID) + " " + to_string(best_action.v));
+
+            break;
+        case 2:
+            robotOrder_2_motion.push_back("rotate " + to_string(robotID) + " " + to_string(best_action.w));
+            robotOrder_2_motion.push_back("forward " + to_string(robotID) + " " + to_string(best_action.v));
+
+            break;
+        case 3:
+            robotOrder_3_motion.push_back("rotate " + to_string(robotID) + " " + to_string(best_action.w));
+            robotOrder_3_motion.push_back("forward " + to_string(robotID) + " " + to_string(best_action.v));
             break;
     }
 
@@ -800,61 +841,87 @@ Trajectory dwaControl(int robotID){
 }
 
 
-Trajectory dwaControl_gpt(int robotID){
-    Robot current_robot = robot[robotID];
-
+ControlAction dwaControl_gpt(int robotID){
     //当前线速度
-    double cur_v = current_robot.lineSpeed_X;
+    double cur_v = robot[robotID].lineSpeed;
     //当前角速度
-    double cur_w = current_robot.lineSpeed_Y;
+    double cur_w = robot[robotID].angleSpeed;
 
     //当前状态下，能达到的最大线速度/角速度范围
     double v_range[] = {cur_v - max_acc_v * dt, cur_v + max_acc_v * dt};
     double w_range[] = {cur_w - max_acc_w * dt, cur_w + max_acc_w * dt};
 
-    //最优轨迹
-    Trajectory best_traj{};
+    //定义最佳控制动作
+    ControlAction best_action = {0.0, 0.0};
     //最小花费
-    double min_cost;
-    //速度步进
-    double predict_step = 0.1;
+    double min_cost = numeric_limits<double>::max();;
 
     for(double v = v_range[0]; v <= v_range[1]; v += max_acc_v * predict_step){
         for(double w = w_range[0]; w <= w_range[1]; w += max_acc_w * predict_step){
-            //预测时间
-            double time = 0.0;
-            Trajectory traj{};
-            while(time < predict_time){
+
+            //预测轨迹
+            vector<Robot> trajectory;
+
+            Robot state = robot[robotID];
+
+            double time = 0;
+            while(time <= predict_time){
                 //下一时刻的预测点
-                current_robot.angleSpeed = current_robot.angle + w * dt;
-                current_robot.angle = current_robot.angle + w * dt;
-                current_robot.position_X = current_robot.lineSpeed_X + current_robot.lineSpeed_X * dt;
-                current_robot.position_Y = current_robot.lineSpeed_Y + current_robot.lineSpeed_Y * dt;
-                current_robot.lineSpeed = v + v * dt;
+                state.angleSpeed = state.angle + w * dt;
+                state.angle = state.angle + w * dt;
+                state.position_X = state.lineSpeed_X + state.lineSpeed_X * dt;
+                state.position_Y = state.lineSpeed_Y + state.lineSpeed_Y * dt;
+                state.lineSpeed = v + v * dt;
 
-                traj.x.push_back(current_robot.position_X);
-                traj.y.push_back(current_robot.position_Y);
-                traj.theta.push_back(current_robot.angle);
-                traj.v.push_back(current_robot.lineSpeed);
-                traj.w.push_back(current_robot.angleSpeed);
+                //添加轨迹
+                trajectory.push_back(state);
 
+                //增加时间
                 time += dt;
             }
-
             //本次预测轨迹的代价
-            double cost = costFunction_gpt(robotID, current_robot);
+            double cost = costFunction_gpt(robotID, state);
+            // 更新最佳控制动作
             if(cost < min_cost){
-                best_traj = traj;
+                best_action.v = v;
+                best_action.w = w;
+                min_cost = cost;
             }
         }
     }
-    return best_traj;
+    return best_action;
 }
-double costFunction_gpt(int robotID, Robot goal_state){
-    double heading_cost = heading_weight * abs(robot[robotID].angle- goal_state.angle);
-    double distance_cost = distance_weight * sqrt(pow(robot[robotID].position_X- goal_state.position_X, 2) + pow(robot[robotID].position_Y - goal_state.position_Y, 2));
-    double velocity_cost = velocity_weight * abs(robot[robotID].lineSpeed - goal_state.lineSpeed);
-    return heading_cost + distance_cost + velocity_cost;
+double costFunction_gpt(int robotID, Robot current_state){
+
+    double dx = workbench[robot[robotID].targetBench].position_X - current_state.position_X;
+    double dy = workbench[robot[robotID].targetBench].position_Y- current_state.position_Y;
+    //double dtheta = atan2(dy, dx);  // 使用反正切函数计算方向角度
+    double vector_positiveX = robot[robotID].position_X;
+
+    double cos1 = (dx * vector_positiveX)
+                  /
+                  (sqrt(dx * dx + dy * dy) * sqrt(vector_positiveX * vector_positiveX));
+    double dtheta = acos(cos1);
+
+
+    double heading_cost = heading_weight * abs(dtheta - current_state.angle);
+    double distance_cost = distance_weight * sqrt(pow(workbench[robot[robotID].targetBench].position_X- current_state.position_X, 2) + pow(workbench[robot[robotID].targetBench].position_Y - current_state.position_Y, 2));
+    //double velocity_cost = velocity_weight * abs(robot[robotID].lineSpeed - current_state.lineSpeed);
+    return heading_cost + distance_cost;
+
+
+
+    //机器人和目标点的向量 X Y
+    //double vector_robotTobenchX = workbench[robot[robotID].targetBench].position_X - robot[robotID].position_X;
+    //double vector_robotTobenchY = workbench[robot[robotID].targetBench].position_Y - robot[robotID].position_Y;
+    //工作台与以机器人为原点的正方向向量
+    //double vector_positiveX = robot[robotID].position_X;
+    //工作台与以机器人为原点的正方向的夹角
+    //double angle_bench_positive {};
+    //double cos1 = (dx * dx)
+    //              /
+    //              (pow(dx * dx + dy * dy,0.5) * pow(current_state.position_X * current_state.position_X,0.5));
+    //angle_bench_positive = acos(cos1);
 }
 
 
